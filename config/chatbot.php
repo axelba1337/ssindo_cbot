@@ -9,7 +9,7 @@ return [
     | Ambang cosine similarity untuk menjawab dari database (RAG).
     | Jika skor < threshold → fallback ke LLM (Gemini).
     */
-    'threshold' => (float) env('CHATBOT_THRESHOLD', 0.50),
+    'threshold' => (float) env('CHATBOT_THRESHOLD', 0.10),
     'top_k'     => (int)   env('CHATBOT_TOPK', 5),   // ambil top-K snippet sebelum rerank/konteks
 
     // Versi Api

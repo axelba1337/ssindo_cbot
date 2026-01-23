@@ -112,7 +112,7 @@ class ChatbotController extends Controller
         $topK = array_slice($scored, 0, (int) config('chatbot.top_k', 5));
         $best = $topK[0] ?? null;
 
-        $threshold  = (float) config('chatbot.threshold', 0.50);
+        $threshold  = (float) config('chatbot.threshold', 0.10);
         $answer     = '';
         $source     = 'gemini';
         $similarity = $best['score'] ?? null;

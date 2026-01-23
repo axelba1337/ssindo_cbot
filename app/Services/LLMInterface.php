@@ -13,4 +13,4 @@ interface LLMInterface
      * Menghasilkan jawaban dari LLM dengan konteks (list snippet ringkas).
      */
     public function chat(string $prompt, array $context = []): string;
-}
+}   
