@@ -6,44 +6,51 @@ use Illuminate\Support\Facades\DB;
 
 class ChatbotMetricsController extends Controller
 {
-    // KPI hari ini + ringkasan
     public function today()
     {
+        $startToday = now()->startOfDay();
+        $endToday   = now()->addDay()->startOfDay();
+
+        $start7d = now()->subDays(6)->startOfDay();
+
         $total = (int) DB::table('chatbot_logs')
-            ->whereRaw('created_at::date = CURRENT_DATE')
+            ->where('created_at', '>=', $startToday)
+            ->where('created_at', '<',  $endToday)
             ->count();
 
-        // auto-answer = semua source selain 'gemini'
         $auto = (int) DB::table('chatbot_logs')
-            ->whereRaw('created_at::date = CURRENT_DATE')
+            ->where('created_at', '>=', $startToday)
+            ->where('created_at', '<',  $endToday)
             ->where('source', '<>', 'gemini')
             ->count();
 
-        // rata-rata similarity 7 hari terakhir
+        // rata-rata similarity 7 hari terakhir (termasuk hari ini)
         $avgSim = (float) (DB::table('chatbot_logs')
-            ->whereRaw("created_at >= CURRENT_DATE - INTERVAL '6 days'")
+            ->where('created_at', '>=', $start7d)
             ->avg('similarity') ?? 0);
 
         return response()->json([
-            'today_total'       => $total,
-            'today_auto'        => $auto,
-            'auto_answer_rate'  => $total > 0 ? $auto / $total : 0, // 0..1
-            'avg_similarity'    => $avgSim,                         // 0..1 null,
+            'today_total'      => $total,
+            'today_auto'       => $auto,
+            'auto_answer_rate' => $total > 0 ? $auto / $total : 0,
+            'avg_similarity'   => $avgSim,
         ]);
     }
 
-    // Agregasi total per-source untuk 7 hari terakhir (untuk bar chart)
     public function trendSources()
     {
+        $start7d = now()->subDays(6)->startOfDay();
+
         $rows = DB::table('chatbot_logs')
             ->select('source', DB::raw('COUNT(*) AS total'))
-            ->whereRaw("created_at >= CURRENT_DATE - INTERVAL '6 days'")
+            ->where('created_at', '>=', $start7d)
             ->groupBy('source')
             ->get()
             ->keyBy('source');
 
         $labels = ['product','service','office_hours','contact','faq','gemini'];
         $data   = [];
+
         foreach ($labels as $s) {
             $data[] = (int) ($rows[$s]->total ?? 0);
         }
