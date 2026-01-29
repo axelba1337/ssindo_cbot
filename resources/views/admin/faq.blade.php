@@ -65,5 +65,5 @@
 @endsection
 
 @section('scripts')
-@vite(['resources/js/admin/faq.js'])
+<script src="{{ asset('assets/landing/js/admin/faq.js') }}" defer></script>
 @endsection

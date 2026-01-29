@@ -5,12 +5,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>@yield('title','Admin Chatbot')</title>
-  @vite(['resources/css/admin.css'])
+
+  <link rel="stylesheet" href="{{ asset('assets/landing/css/admin.css') }}">
 </head>
 
 <body class="admin">
   <header class="admin__header">
     <div class="admin__brand">Neev Chatbot • Admin</div>
+
     <nav class="admin__nav">
       <a href="{{ route('admin.dashboard') }}">Dashboard</a>
       <a href="{{ route('admin.faq') }}">FAQ</a>
@@ -33,7 +35,6 @@
     <small>&copy; {{ date('Y') }} Neev</small>
   </footer>
 
-  <!-- NOTIFICATION (pindah ke dalam body) -->
   <div id="notif" class="notif hidden">
     <span id="notif-msg"></span>
   </div>
@@ -48,16 +49,10 @@
         const toggle = document.getElementById('theme-toggle-input');
         const label = document.getElementById('theme-toggle-label');
 
-        if (toggle) {
-          toggle.checked = theme === 'dark';
-        }
-
-        if (label) {
-          label.textContent = theme === 'dark' ? 'Dark mode' : 'Light mode';
-        }
+        if (toggle) toggle.checked = theme === 'dark';
+        if (label) label.textContent = theme === 'dark' ? 'Dark mode' : 'Light mode';
       }
 
-      // load tema dari localStorage atau default light
       const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
       applyTheme(savedTheme);
 

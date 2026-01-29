@@ -1,4 +1,4 @@
-// resources/js/admin/faq.js
+// assets/landing/admin/faq.js
 // CRUD FAQ + auto rebuild knowledge + NOTIFIKASI
 
 (() => {

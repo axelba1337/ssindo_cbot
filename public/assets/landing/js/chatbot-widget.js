@@ -1,11 +1,13 @@
-// resources/js/chatbot-widget.js
+// public/assets/landing/js/chatbot-widget.js
 (() => {
   const KEY_SID = 'cbot_session_id';
   const KEY_STK = 'cbot_session_tok';
   const qs = (s, r = document) => r.querySelector(s);
 
   const ROOT = qs('#cbot');
-  const AVATAR_URL = ROOT?.dataset?.avatarUrl || '';
+  if (!ROOT) return;
+
+  const AVATAR_URL = ROOT.dataset.avatarUrl || '';
 
   function loadSession() {
     return {
@@ -45,8 +47,8 @@
   function setTyping(on) {
     const wrap = qs('#cbot-messages');
     if (!wrap) return;
-    let el = qs('#cbot-typing', wrap);
 
+    let el = qs('#cbot-typing', wrap);
     if (on) {
       if (!el) {
         el = document.createElement('div');
@@ -60,9 +62,10 @@
         wrap.appendChild(el);
       }
       wrap.scrollTop = wrap.scrollHeight;
-    } else if (el) {
-      el.remove();
+      return;
     }
+
+    if (el) el.remove();
   }
 
   function renderMessage({ role, text }) {
@@ -94,7 +97,6 @@
     wrap.scrollTop = wrap.scrollHeight;
   }
 
-  // Bubble khusus yang hanya berisi tombol WhatsApp Admin
   function renderWhatsAppOnlyBubble(link) {
     const wrap = qs('#cbot-messages');
     if (!wrap) return;
@@ -106,9 +108,7 @@
         ${AVATAR_URL ? `<img src="${AVATAR_URL}" alt="Neev">` : ''}
       </div>
       <div class="msg__bubble">
-        <a class="btn-wa-only" href="${link}" target="_blank" rel="noopener">
-          WhatsApp Admin
-        </a>
+        <a class="btn-wa-only" href="${link}" target="_blank" rel="noopener">WhatsApp Admin</a>
       </div>
     `;
     wrap.appendChild(div);
@@ -166,16 +166,10 @@
       const containsWaUrl = /https:\/\/wa\.me\//.test(answerText);
 
       if (hasWa && containsWaUrl) {
-        // Kasus khusus: pertanyaan "no wa admin" → hanya bubble tombol
         renderWhatsAppOnlyBubble(link);
       } else {
-        // Jawaban biasa
         renderMessage({ role: 'assistant', text: answerText });
-
-        // Jika perlu handoff (fallback / skor rendah), tambahkan bubble tombol di bawahnya
-        if (hasWa) {
-          renderWhatsAppOnlyBubble(link);
-        }
+        if (hasWa) renderWhatsAppOnlyBubble(link);
       }
     } catch (e) {
       renderMessage({ role: 'assistant', text: 'Maaf, koneksi bermasalah. Coba lagi.' });
@@ -208,15 +202,21 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     bind();
-    renderMessage({
-      role: 'assistant',
-      text: 'Halo! Saya Neev Assistant. Pilih salah satu untuk mulai.',
-    });
-    showQuick([
-      'Saya ingin pemasangan CCTV',
-      'Produk CCTV apa yang tersedia?',
-      'Jam operasional toko berapa?',
-      'Butuh bantuan teknis',
-    ]);
+
+    const wrap = qs('#cbot-messages');
+    const alreadyHasMsg = wrap && wrap.children && wrap.children.length > 0;
+
+    if (!alreadyHasMsg) {
+      renderMessage({
+        role: 'assistant',
+        text: 'Halo! Saya Neev Assistant. Pilih salah satu untuk mulai.',
+      });
+      showQuick([
+        'Saya ingin pemasangan CCTV',
+        'Produk CCTV apa yang tersedia?',
+        'Jam operasional toko berapa?',
+        'Butuh bantuan teknis',
+      ]);
+    }
   });
 })();

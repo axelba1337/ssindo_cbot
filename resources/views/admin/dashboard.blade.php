@@ -26,5 +26,5 @@
 
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-@vite(['resources/js/admin/dashboard.js'])
+<script src="{{ asset('assets/landing/js/admin/dashboard.js') }}" defer></script>
 @endsection

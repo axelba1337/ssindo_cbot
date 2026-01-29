@@ -7,14 +7,14 @@
   <title>@yield('title','Neev Chatbot')</title>
   @vite([
     'resources/css/app.css',
-    'resources/css/chatbot-widget.css',
     'resources/js/app.js'
   ])
 </head>
 <body>
   @yield('content')
 
-  @vite(['resources/js/chatbot-widget.js'])
+  <script src="{{ asset('assets/landing/js/chatbot-widget.js') }}" defer></script>
+
   @yield('scripts')
 </body>
 </html>

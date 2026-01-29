@@ -1,4 +1,4 @@
-/* resources/css/chatbot-widget.css */
+/* public/assets/landing/css/chatbot-widget.css */
 /* Tema baru: gradien lembut, font Inter, avatar bot (logo) */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
@@ -8,22 +8,129 @@
   --cbot-text:#0f172a;
   --cbot-muted:#64748b;
 
-  --cbot-primary:#4f46e5;      /* indigo */
-  --cbot-primary-2:#06b6d4;    /* cyan */
-  --cbot-accent:#22c55e;       /* green */
+  --cbot-primary:#4f46e5;
+  --cbot-primary-2:#06b6d4;
+  --cbot-accent:#22c55e;
 
   --cbot-border:#e2e8f0;
   --cbot-card:#ffffff;
 }
 
-*{box-sizing:border-box}
-body{
-  margin:0;
+*{ box-sizing:border-box; }
+
+.cbot, .cbot *{
   font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
-  color:var(--cbot-text);
-  background:#eef2ff;
 }
 
+/* ===== SHELL (floating wrapper) ===== */
+.cbot-shell{
+  position:fixed;
+  left:16px;
+  bottom:16px;
+  width:360px;
+  height:min(520px, 75vh);
+  min-width:320px;
+  min-height:360px;
+  max-width:720px;
+  max-height:90vh;
+  z-index:9999;
+  display:flex;
+  flex-direction:column;
+}
+
+.cbot-shell--wide{
+  width:min(680px, 95vw);
+  height:min(520px, 80vh);
+}
+
+.cbot-shell .cbot{
+  height:100%;
+  margin:0;
+  border-radius:16px;
+  display:flex;
+  flex-direction:column;
+}
+
+.cbot-shell .cbot__messages{
+  flex:1 1 auto;
+  height:auto;
+}
+
+.cbot-shell--hidden{ display:none; }
+
+.cbot-shell-toggle{
+  position:absolute;
+  right:14px;
+  top:12px;
+  width:26px;
+  height:26px;
+  border-radius:999px;
+  border:0;
+  background:rgba(15,23,42,.75);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:20;
+  padding:0;
+}
+.cbot-shell-toggle img{
+  width:14px;
+  height:14px;
+  filter:invert(1);
+}
+.cbot-shell-toggle:hover{ background:rgba(15,23,42,.95); }
+
+.cbot-shell-resize{
+  position:absolute;
+  left:14px;
+  top:12px;
+  width:26px;
+  height:26px;
+  border-radius:999px;
+  border:0;
+  background:rgba(15,23,42,.75);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:20;
+  padding:0;
+}
+.cbot-shell-resize img{
+  width:14px;
+  height:14px;
+  filter:invert(1);
+}
+.cbot-shell-resize:hover{ background:rgba(15,23,42,.95); }
+
+.cbot-launcher-icon{
+  position:fixed;
+  left:18px;
+  bottom:18px;
+  width:52px;
+  height:52px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#2563eb,#22c55e);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  box-shadow:0 18px 35px rgba(15,23,42,.65);
+  z-index:9998;
+}
+.cbot-launcher-icon img{
+  width:28px;
+  height:28px;
+}
+.cbot-launcher-icon.is-hidden{ display:none; }
+
+.cbot-dragging{
+  cursor:grabbing !important;
+  user-select:none;
+}
+
+/* ===== WIDGET UI ===== */
 .cbot{
   max-width:720px;
   margin:24px auto;
@@ -33,7 +140,7 @@ body{
   background:var(--cbot-card);
   box-shadow:0 10px 30px rgba(2,6,23,.06);
 }
-.cbot--widget{position:relative}
+.cbot--widget{ position:relative; }
 
 /* HEADER */
 .cbot__header{
@@ -46,9 +153,9 @@ body{
   background:linear-gradient(90deg, rgba(79,70,229,.08), rgba(6,182,212,.08));
   border-bottom:1px solid var(--cbot-border);
 }
-.cbot__brand{display:flex;align-items:center;gap:10px}
-.cbot__brand-logo{width:22px;height:22px;object-fit:contain}
-.cbot__title{font-weight:700;letter-spacing:.2px}
+.cbot__brand{ display:flex; align-items:center; gap:10px; }
+.cbot__brand-logo{ width:22px; height:22px; object-fit:contain; }
+.cbot__title{ font-weight:700; letter-spacing:.2px; color:var(--cbot-text); }
 .badge{
   margin-left:8px;
   display:inline-block;
@@ -60,13 +167,8 @@ body{
   border:1px solid #bae6fd;
 }
 
-/* container CTA lama di header dibuat non-aktif */
-#cbot-header-cta{
-  position:absolute;
-  right:12px;
-  top:10px;
-  display:none;          /* tidak dipakai lagi */
-}
+/* CTA header lama dimatikan */
+#cbot-header-cta{ display:none; }
 
 /* AREA PESAN */
 .cbot__messages{
@@ -93,8 +195,10 @@ body{
   border:1px solid var(--cbot-border);
   border-radius:12px;
   background:#fff;
+  color:var(--cbot-text);
   box-shadow:0 1px 0 rgba(2,6,23,.02);
 }
+.cbot__input input::placeholder{ color:#94a3b8; }
 .cbot__input button{
   display:inline-flex;
   align-items:center;
@@ -105,12 +209,10 @@ body{
   border:0;
   border-radius:12px;
   background:linear-gradient(135deg,var(--cbot-primary),var(--cbot-primary-2));
-  color:#fff;
-  font-weight:600;
   cursor:pointer;
   box-shadow:0 8px 20px rgba(79,70,229,.25);
 }
-.cbot__input button:disabled{opacity:.6;cursor:not-allowed}
+.cbot__input button:disabled{ opacity:.6; cursor:not-allowed; }
 .cbot__input button .icon-send{
   width:18px;
   height:18px;
@@ -131,7 +233,7 @@ body{
   flex:0 0 28px;
   align-self:flex-end;
 }
-.msg__avatar img{width:100%;height:100%;object-fit:contain}
+.msg__avatar img{ width:100%; height:100%; object-fit:contain; }
 
 .msg__bubble{
   max-width:78%;
@@ -140,9 +242,10 @@ body{
   line-height:1.45;
   background:#fff;
   border:1px solid var(--cbot-border);
+  color:var(--cbot-text);
 }
-.msg--user{justify-content:flex-end}
-.msg--user .msg__avatar{display:none}
+.msg--user{ justify-content:flex-end; }
+.msg--user .msg__avatar{ display:none; }
 .msg--user .msg__bubble{
   background:linear-gradient(135deg, rgba(79,70,229,1), rgba(6,182,212,1));
   color:#fff;
@@ -155,10 +258,7 @@ body{
   box-shadow:0 4px 12px rgba(2,6,23,.06);
 }
 
-.msg__text p{margin:0 0 6px}
-.msg__text p:last-child{margin-bottom:0}
-
-.msg__meta{display:none} /* sembunyikan badge sumber di UI publik */
+.msg__meta{ display:none; }
 
 /* Typing */
 .typing{
@@ -174,9 +274,9 @@ body{
   background:#94a3b8;
   animation:blink 1.2s infinite;
 }
-.typing .dot:nth-child(2){animation-delay:.2s}
-.typing .dot:nth-child(3){animation-delay:.4s}
-@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.typing .dot:nth-child(2){ animation-delay:.2s; }
+.typing .dot:nth-child(3){ animation-delay:.4s; }
+@keyframes blink{ 0%,80%,100%{opacity:.2} 40%{opacity:1} }
 
 /* Quick replies */
 .quick{
@@ -196,27 +296,9 @@ body{
   font-weight:600;
   color:#334155;
 }
-.quick__btn:hover{background:#f8fafc}
+.quick__btn:hover{ background:#f8fafc; }
 
-/* Tombol WA di dalam bubble */
-.wa-bubble-btn{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:8px 14px;
-  border-radius:999px;
-  background:#22c55e;
-  color:#ffffff;
-  font-size:14px;
-  font-weight:600;
-  text-decoration:none;
-  box-shadow:0 6px 14px rgba(34,197,94,.35);
-}
-.wa-bubble-btn:hover{
-  filter:brightness(.95);
-}
-
-/* Tombol WhatsApp di dalam bubble saja */
+/* Tombol WA */
 .btn-wa-only{
   display:inline-block;
   padding:8px 16px;
@@ -228,7 +310,33 @@ body{
   text-decoration:none;
   white-space:nowrap;
 }
+.btn-wa-only:hover{ filter:brightness(.95); }
 
-.btn-wa-only:hover{
-  filter:brightness(.95);
+
+/* =========================
+   FIX: warna text agar tidak ikut body halaman luar
+   ========================= */
+.cbot,
+.cbot *{
+  color: inherit;
+}
+
+.cbot{
+  color: var(--cbot-text);
+}
+
+.msg--bot .msg__bubble,
+.msg--bot .msg__text,
+.msg--bot .msg__text *{
+  color: var(--cbot-text) !important;
+}
+
+.msg--user .msg__bubble,
+.msg--user .msg__text,
+.msg--user .msg__text *{
+  color: #fff !important;
+}
+
+.msg--bot .msg__bubble a{
+  color: var(--cbot-primary);
 }

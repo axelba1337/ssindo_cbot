@@ -1,4 +1,4 @@
-// resources/js/admin/unanswered.js
+// assets/landing/admin/unanswered.js
 // List pertanyaan "unanswered" + modal jadikan FAQ
 
 (() => {

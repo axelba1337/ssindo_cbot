@@ -1,9 +1,4 @@
-// resources/js/chatbot-widget-shell.js
-// Khusus halaman /chatbot/widget
-// - drag lewat header
-// - minimize → tampilkan launcher bulat
-// - toggle resize (compact / wide) pakai icon resize
-
+// public/assets/landing/js/chatbot-widget-shell.js
 (() => {
   const shell    = document.getElementById('cbot-shell');
   const launcher = document.getElementById('cbot-launcher');
@@ -13,11 +8,9 @@
 
   if (!shell || !launcher || !header) return;
 
-  // ------ DRAG ------
   let drag = { active: false, offsetX: 0, offsetY: 0 };
 
   function onMouseDown(e) {
-    // drag hanya jika klik di header, bukan di tombol
     if (e.target.closest('button')) return;
 
     drag.active = true;
@@ -36,7 +29,6 @@
     let x = e.clientX - drag.offsetX;
     let y = e.clientY - drag.offsetY;
 
-    // batas supaya tetap di layar
     const rect = shell.getBoundingClientRect();
     const w = rect.width;
     const h = rect.height;
@@ -60,7 +52,6 @@
   window.addEventListener('mousemove', onMouseMove);
   window.addEventListener('mouseup', onMouseUp);
 
-  // ------ MINIMIZE / SHOW ------
   btnMin?.addEventListener('click', () => {
     shell.classList.add('cbot-shell--hidden');
     launcher.classList.remove('is-hidden');
@@ -71,9 +62,15 @@
     launcher.classList.add('is-hidden');
   });
 
-  // ------ RESIZE TOGGLE (compact / wide) ------
+  launcher.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      shell.classList.remove('cbot-shell--hidden');
+      launcher.classList.add('is-hidden');
+    }
+  });
+
   btnRes?.addEventListener('click', () => {
     shell.classList.toggle('cbot-shell--wide');
   });
-
 })();

@@ -7,11 +7,11 @@ use Illuminate\Support\Facades\Route;
 // ==========================
 Route::get('/chatbot', function () {
     return view('chatbot.widget');
-})->name('chatbot.widget');
+})->name('chatbot');
 
 Route::get('/chatbot/widget', function () {
     return view('chatbot.widget-demo');
-})->name('chatbot.widget');
+})->name('chatbot.widget_demo');
 
 // ==========================
 // ROUTE UNTUK ADMIN PANEL
