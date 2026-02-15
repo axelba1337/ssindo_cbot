@@ -1,0 +1,46 @@
+# Menggunakan image PHP 8.3 dengan Apache
+FROM php:8.3-apache
+
+# Install library sistem yang dibutuhkan Laravel
+RUN apt-get update && apt-get install -y \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    unzip \
+    git \
+    curl \
+    default-mysql-client
+
+# Bersihkan cache apt agar image lebih kecil
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install ekstensi PHP yang dibutuhkan (termasuk pdo_mysql untuk database)
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+
+# Aktifkan mod_rewrite Apache (Wajib untuk URL Laravel)
+RUN a2enmod rewrite
+
+# Set folder kerja
+WORKDIR /var/www/html
+
+# Install Composer terbaru
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Copy semua file project ke dalam container
+COPY . /var/www/html
+
+# Install dependencies Laravel via Composer
+# Menggunakan flag --ignore-platform-reqs kadang membantu jika ada konflik minor versi lokal vs server
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Ubah permission folder storage dan bootstrap cache agar bisa ditulisi
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Ubah DocumentRoot Apache ke folder /public (standar Laravel)
+ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/000-default.conf
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
+
+# Buka port 80
+EXPOSE 80
