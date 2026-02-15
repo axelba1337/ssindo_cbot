@@ -26,7 +26,7 @@ class GeminiService implements LLMInterface
      */
     public function getEmbedding(string $text): ?array
     {
-        $ver = config('chatbot.api_version', 'v1');
+        $ver = config('chatbot.api_version', 'v1beta');
 
         if ($text === '') {
             return null;
@@ -61,7 +61,7 @@ class GeminiService implements LLMInterface
      */
     public function chat(string $prompt, array $context = []): string
     {
-        $ver = config('chatbot.api_version', 'v1');
+        $ver = config('chatbot.api_version', 'v1beta');
 
         $ctx = $this->buildContext($context);
 

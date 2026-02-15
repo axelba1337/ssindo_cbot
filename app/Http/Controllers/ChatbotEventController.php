@@ -77,7 +77,7 @@ class ChatbotEventController extends Controller
     {
         $rows = DB::table('chatbot_logs')
             ->where('source', 'gemini')
-            ->where('similarity', '<', 0.10)
+            ->where('similarity', '<', 0.0)
             ->orderByDesc('created_at')
             ->limit(200)
             ->get([
