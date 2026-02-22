@@ -1,54 +1,43 @@
-# 1. Menggunakan image PHP 8.3 dengan Apache
+# 1. Image Dasar
 FROM php:8.3-apache
 
-# 2. Install library sistem yang dibutuhkan Laravel
-# Ditambahkan --no-install-recommends agar image lebih ramping
+# 2. Install Library & PHP Extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpng-dev \
-    libonig-dev \
-    libxml2-dev \
-    zip \
-    unzip \
-    git \
-    curl \
-    libzip-dev \
-    default-mysql-client && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    libpng-dev libonig-dev libxml2-dev zip unzip git curl libzip-dev \
+    default-mysql-client \
+    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 3. Install ekstensi PHP
-# Ditambahkan pdo saja sebelum pdo_mysql untuk stabilitas
-RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip
+# 3. Konfigurasi Apache (Handle Dynamic Port dari Koyeb)
+# Mengganti port 80 di config Apache menjadi variable $PORT
+RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
-# 4. Aktifkan mod_rewrite Apache
+# 4. Setup Mod Rewrite & Workdir
 RUN a2enmod rewrite
-
-# 5. Set folder kerja
 WORKDIR /var/www/html
 
-# 6. Install Composer terbaru
+# 5. Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# 7. Copy project Laravel
-COPY . /var/www/html
-
-# 8. Install Dependencies Laravel (Mode Produksi)
+# 6. Copy Source Code & Install Dependencies
+COPY . .
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# 9. Ubah DocumentRoot Apache ke folder /public
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/000-default.conf
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
-
-# 10. Set Permission untuk Storage dan Cache
-# Penting agar Laravel bisa menulis log dan file session
+# 7. Permissions (Krusial untuk Laravel)
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
     chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# 11. Optimasi Laravel (Caching)
-# Ini dilakukan saat build agar aplikasi booting lebih cepat di Render
-# Jalankan ini jika APP_KEY sudah tersedia, jika tidak biarkan Laravel runtime yang menangani
-# RUN php artisan config:cache && php artisan route:cache && php artisan view:cache
+# 8. Entrypoint Script (Sangat Penting untuk SSL Aiven)
+# Kita akan membuat file script untuk menulis CA Certificate saat container jalan
+RUN echo '#!/bin/sh\n\
+if [ -n "$AIVEN_CA_CERT" ]; then\n\
+  echo "$AIVEN_CA_CERT" > /var/www/html/storage/ca.pem\n\
+fi\n\
+# Set port di runtime\n\
+sed -i "s/80/${PORT}/g" /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf\n\
+apache2-foreground' > /usr/local/bin/start-app.sh && chmod +x /usr/local/bin/start-app.sh
 
-EXPOSE 80
+# Koyeb akan menggunakan environment variable PORT
+EXPOSE 8080
 
-# 12. CMD sudah bawaan dari image php-apache untuk menjalankan apache
+CMD ["/usr/local/bin/start-app.sh"]
