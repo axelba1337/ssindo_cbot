@@ -2,6 +2,11 @@
 
 use Illuminate\Support\Facades\Route;
 
+// Tambahkan ini di paling atas file routes/web.php
+Route::get('/', function () {
+    return redirect()->route('chatbot'); 
+});
+
 // ==========================
 // ROUTE UNTUK CHATBOT (USER)
 // ==========================
