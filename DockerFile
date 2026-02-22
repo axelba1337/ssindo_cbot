@@ -4,13 +4,13 @@ FROM php:8.3-apache
 # 2. Install Library & PHP Extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev libonig-dev libxml2-dev zip unzip git curl libzip-dev \
-    default-mysql-client \
     && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 3. Konfigurasi Apache (Handle Dynamic Port dari Koyeb)
-# Mengganti port 80 di config Apache menjadi variable $PORT
-RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
+# 3. FIX: Set DocumentRoot ke /public (Cegah Error 403)
+ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/000-default.conf \
+    && sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 
 # 4. Setup Mod Rewrite & Workdir
 RUN a2enmod rewrite
@@ -19,25 +19,26 @@ WORKDIR /var/www/html
 # 5. Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# 6. Copy Source Code & Install Dependencies
+# 6. Copy Source & Install Dependencies
 COPY . .
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# 7. Permissions (Krusial untuk Laravel)
+# 7. Permissions Storage & Cache
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
     chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# 8. Entrypoint Script (Sangat Penting untuk SSL Aiven)
-# Kita akan membuat file script untuk menulis CA Certificate saat container jalan
+# 8. Script Runtime: Handle Dynamic Port & SSL Aiven
 RUN echo '#!/bin/sh\n\
+# Injeksi SSL Aiven ke storage\n\
 if [ -n "$AIVEN_CA_CERT" ]; then\n\
   echo "$AIVEN_CA_CERT" > /var/www/html/storage/ca.pem\n\
+  chown www-data:www-data /var/www/html/storage/ca.pem\n\
 fi\n\
-# Set port di runtime\n\
+# Set port dinamis Koyeb\n\
 sed -i "s/80/${PORT}/g" /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf\n\
 apache2-foreground' > /usr/local/bin/start-app.sh && chmod +x /usr/local/bin/start-app.sh
 
-# Koyeb akan menggunakan environment variable PORT
+# 9. Port Exposure
 EXPOSE 8080
 
 CMD ["/usr/local/bin/start-app.sh"]
