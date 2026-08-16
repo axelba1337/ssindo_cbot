@@ -1,25 +1,11 @@
 // public/assets/landing/js/chatbot-widget.js
 (() => {
-  const KEY_SID = 'cbot_session_id';
-  const KEY_STK = 'cbot_session_tok';
   const qs = (s, r = document) => r.querySelector(s);
 
   const ROOT = qs('#cbot');
   if (!ROOT) return;
 
   const AVATAR_URL = ROOT.dataset.avatarUrl || '';
-
-  function loadSession() {
-    return {
-      id: localStorage.getItem(KEY_SID),
-      tok: localStorage.getItem(KEY_STK),
-    };
-  }
-
-  function saveSession(id, tok) {
-    if (id) localStorage.setItem(KEY_SID, String(id));
-    if (tok) localStorage.setItem(KEY_STK, String(tok));
-  }
 
   async function postQuery(message, sessionId) {
     const body = sessionId ? { message, session_id: sessionId } : { message };
@@ -68,7 +54,16 @@
     if (el) el.remove();
   }
 
-  function renderMessage({ role, text }) {
+  function safeWebUrl(value) {
+    try {
+      const url = new URL(String(value));
+      return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function renderMessage({ role, text, sources = [] }) {
     const wrap = qs('#cbot-messages');
     const tpl = qs('#cbot-message-template');
     if (!wrap || !tpl) return;
@@ -84,6 +79,35 @@
 
     txt.innerHTML = escapeHtml(text ?? '');
     if (meta) meta.style.display = 'none';
+
+    if (role !== 'user' && Array.isArray(sources) && sources.length > 0) {
+      const sourceWrap = document.createElement('div');
+      sourceWrap.className = 'msg__sources';
+
+      const label = document.createElement('strong');
+      label.textContent = 'Sources';
+      sourceWrap.appendChild(label);
+
+      const list = document.createElement('ul');
+      sources.forEach(source => {
+        const href = safeWebUrl(source?.url);
+        if (!href) return;
+
+        const item = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = href;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = source?.title || new URL(href).hostname;
+        item.appendChild(link);
+        list.appendChild(item);
+      });
+
+      if (list.children.length > 0) {
+        sourceWrap.appendChild(list);
+        txt.insertAdjacentElement('afterend', sourceWrap);
+      }
+    }
 
     if (role === 'user') {
       if (avatar) avatar.remove();
@@ -142,7 +166,10 @@
     if (qbox) qbox.hidden = true;
   }
 
-  let sid = loadSession().id || null;
+  // The widget does not restore old visible messages after a page refresh, so
+  // start a fresh backend conversation too. This prevents invisible history
+  // from affecting a new chat.
+  let sid = null;
 
   async function send(msg, fromQuick = false) {
     const input = qs('#cbot-input');
@@ -157,7 +184,6 @@
     try {
       const res = await postQuery(msg, sid);
       sid = res.session_id || sid;
-      saveSession(res.session_id, res.session_token);
 
       const answerText = res.answer || 'Baik, kami proses.';
       const hasWa = !!(res.cta_whatsapp?.show && res.cta_whatsapp?.link);
@@ -168,7 +194,11 @@
       if (hasWa && containsWaUrl) {
         renderWhatsAppOnlyBubble(link);
       } else {
-        renderMessage({ role: 'assistant', text: answerText });
+        renderMessage({
+          role: 'assistant',
+          text: answerText,
+          sources: res.sources || [],
+        });
         if (hasWa) renderWhatsAppOnlyBubble(link);
       }
     } catch (e) {

@@ -101,7 +101,18 @@ class KnowledgeBuilder
         foreach ($rows as $r) {
             $title = $r->intent ? "FAQ: {$r->intent}" : "FAQ";
             $content = $this->fmtFaq($r);
-            $this->upsertWithEmbedding('faq', 'faq_qa', $r->id, $title, $content);
+            $embeddingText = trim(
+                ($r->intent ? "Intent: {$r->intent}\n" : '')
+                ."Pertanyaan: {$r->question}"
+            );
+            $this->upsertWithEmbedding(
+                'faq',
+                'faq_qa',
+                $r->id,
+                $title,
+                $content,
+                $embeddingText
+            );
             $count++;
         }
         return $count;
@@ -109,19 +120,36 @@ class KnowledgeBuilder
 
     // --------------------- Helpers ---------------------
 
-    private function upsertWithEmbedding(string $kind, string $table, ?int $sourceId, string $title, string $content): void
-    {
-        $emb = $this->llm->getEmbedding($content);
+    private function upsertWithEmbedding(
+        string $kind,
+        string $table,
+        ?int $sourceId,
+        string $title,
+        string $content,
+        ?string $embeddingText = null
+    ): void {
+        $emb = $this->llm->getEmbedding($embeddingText ?? $content);
+        $existing = DB::table('chatbot_knowledge')
+            ->where('source_table', $table)
+            ->where('source_id', $sourceId)
+            ->first();
+
+        $values = [
+            'kind'         => $kind,
+            'title'        => $title,
+            'content_text' => $content,
+            'updated_at'   => now(),
+        ];
+
+        if ($emb) {
+            $values['embedding'] = json_encode($emb);
+        } elseif (!$existing) {
+            $values['embedding'] = null;
+        }
 
         DB::table('chatbot_knowledge')->updateOrInsert(
             ['source_table' => $table, 'source_id' => $sourceId],
-            [
-                'kind'         => $kind,
-                'title'        => $title,
-                'content_text' => $content,
-                'embedding'    => $emb ? json_encode($emb) : null,
-                'updated_at'   => now(),
-            ]
+            $values
         );
     }
 

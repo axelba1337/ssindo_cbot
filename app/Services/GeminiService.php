@@ -16,7 +16,7 @@ class GeminiService implements LLMInterface
 
     public function __construct()
     {
-        $this->apiKey     = (string) env('GEMINI_API_KEY', '');
+        $this->apiKey     = (string) config('services.gemini.key', '');
         $this->embedModel = (string) config('chatbot.models.embed', 'models/embedding-001');
         $this->chatModel  = (string) config('chatbot.models.chat',  'models/gemini-1.5-flash');
     }
@@ -59,11 +59,24 @@ class GeminiService implements LLMInterface
      * Generate jawaban dengan konteks (RAG).
      * $context: array teks ringkas (snippet DB). Akan dipangkas otomatis.
      */
-    public function chat(string $prompt, array $context = []): string
+    public function chat(
+        string $prompt,
+        array $context = [],
+        array $history = [],
+        array $options = [],
+    ): ChatResult
     {
         $ver = config('chatbot.api_version', 'v1beta');
 
         $ctx = $this->buildContext($context);
+        $historyText = collect(
+            array_slice($history, -(int) config('chatbot.history_messages', 8))
+        )->map(
+            fn ($turn) => (($turn['role'] ?? null) === 'assistant'
+                    ? 'Assistant'
+                    : 'User')
+                .': '.trim((string) ($turn['content'] ?? ''))
+        )->filter()->implode("\n");
 
         $systemGuard = <<<TXT
     Anda adalah asisten virtual Neev Solusindo yang membantu pelanggan secara natural dan kontekstual.
@@ -115,7 +128,10 @@ class GeminiService implements LLMInterface
 
     TXT;
 
-        $fullPrompt = "Instruksi:\n{$systemGuard}\n\nKonteks:\n{$ctx}\n\nPertanyaan pengguna:\n{$prompt}";
+        $fullPrompt = "Instruksi:\n{$systemGuard}\n\n"
+            ."Riwayat percakapan:\n"
+            .($historyText !== '' ? $historyText : '(belum ada)')
+            ."\n\nKonteks:\n{$ctx}\n\nPertanyaan pengguna:\n{$prompt}";
 
         $url = "https://generativelanguage.googleapis.com/{$ver}/{$this->chatModel}:generateContent";
 
@@ -142,14 +158,16 @@ class GeminiService implements LLMInterface
                 'status' => $resp->status(),
                 'error'  => $resp->json('error.message'),
             ]);
-            return 'Maaf, saya belum bisa menjawab sekarang.';
+            return ChatResult::failure();
         }
 
         $text = $resp->json('candidates.0.content.parts.0.text')
             ?? $resp->json('candidates.0.output_text')
             ?? '';
 
-        return $text !== '' ? $text : 'Maaf, saya belum bisa menjawab sekarang.';
+        return $text !== ''
+            ? new ChatResult($text)
+            : ChatResult::failure();
     }
 
     /**

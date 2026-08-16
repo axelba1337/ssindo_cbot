@@ -13,7 +13,7 @@
 <body>
   @yield('content')
 
-  <script src="{{ asset('assets/landing/js/chatbot-widget.js') }}" defer></script>
+  <script src="{{ asset('assets/landing/js/chatbot-widget.js') }}?v={{ filemtime(public_path('assets/landing/js/chatbot-widget.js')) }}" defer></script>
 
   @yield('scripts')
 </body>

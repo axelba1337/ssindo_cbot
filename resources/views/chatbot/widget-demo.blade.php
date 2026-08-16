@@ -6,7 +6,7 @@
   <title>Neev Assistant • Widget Demo</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
 
-  <link rel="stylesheet" href="{{ asset('assets/landing/css/chatbot-widget.css') }}">
+  <link rel="stylesheet" href="{{ asset('assets/landing/css/chatbot-widget.css') }}?v={{ filemtime(public_path('assets/landing/css/chatbot-widget.css')) }}">
 
   <style>
     body {
@@ -92,7 +92,7 @@
   </div>
 
   <script>window.CBOT_DEBUG = false;</script>
-  <script src="{{ asset('assets/landing/js/chatbot-widget.js') }}" defer></script>
+  <script src="{{ asset('assets/landing/js/chatbot-widget.js') }}?v={{ filemtime(public_path('assets/landing/js/chatbot-widget.js')) }}" defer></script>
   <script src="{{ asset('assets/landing/js/chatbot-widget-shell.js') }}" defer></script>
 </body>
 </html>

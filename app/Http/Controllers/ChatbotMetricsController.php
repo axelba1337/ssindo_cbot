@@ -21,7 +21,7 @@ class ChatbotMetricsController extends Controller
         $auto = (int) DB::table('chatbot_logs')
             ->where('created_at', '>=', $startToday)
             ->where('created_at', '<',  $endToday)
-            ->where('source', '<>', 'gemini')
+            ->whereNotIn('source', ['llm', 'gemini'])
             ->count();
 
         // rata-rata similarity 7 hari terakhir (termasuk hari ini)
@@ -48,11 +48,13 @@ class ChatbotMetricsController extends Controller
             ->get()
             ->keyBy('source');
 
-        $labels = ['product','service','office_hours','contact','faq','gemini'];
+        $labels = ['product','service','office_hours','contact','faq','llm'];
         $data   = [];
 
         foreach ($labels as $s) {
-            $data[] = (int) ($rows[$s]->total ?? 0);
+            $data[] = $s === 'llm'
+                ? (int) (($rows['llm']->total ?? 0) + ($rows['gemini']->total ?? 0))
+                : (int) ($rows[$s]->total ?? 0);
         }
 
         return response()->json([

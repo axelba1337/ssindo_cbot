@@ -259,6 +259,22 @@
 }
 
 .msg__meta{ display:none; }
+.msg__sources{
+  margin-top:10px;
+  padding-top:8px;
+  border-top:1px solid var(--cbot-border);
+  font-size:12px;
+}
+.msg__sources ul{
+  margin:5px 0 0;
+  padding-left:18px;
+}
+.msg__sources li{ margin:3px 0; }
+.msg__sources a{
+  color:var(--cbot-primary);
+  text-decoration:underline;
+  overflow-wrap:anywhere;
+}
 
 /* Typing */
 .typing{

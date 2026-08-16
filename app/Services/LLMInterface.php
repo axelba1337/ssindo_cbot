@@ -10,7 +10,12 @@ interface LLMInterface
     public function getEmbedding(string $text): ?array;
 
     /**
-     * Menghasilkan jawaban dari LLM dengan konteks (list snippet ringkas).
+     * Menghasilkan jawaban dari LLM dengan konteks database dan riwayat chat.
      */
-    public function chat(string $prompt, array $context = []): string;
-}   
+    public function chat(
+        string $prompt,
+        array $context = [],
+        array $history = [],
+        array $options = [],
+    ): ChatResult;
+}

@@ -54,19 +54,25 @@ Route::prefix('admin')->group(function () {
     Route::post('/unanswered/{id}/to-faq', [ChatbotEventController::class, 'toFaq']);    
 });
 
-// ======================
-// Dev helper: cek daftar model Gemini
-// ======================
-Route::get('/chatbot/dev/models', function () {
-    $key   = env('GEMINI_API_KEY');
+// Dev helper is unavailable outside local development.
+if (app()->environment('local')) {
+    Route::get('/chatbot/dev/models', function () {
+        $key = (string) config('services.gemini.key');
 
-    $v1    = Http::get("https://generativelanguage.googleapis.com/v1/models?key={$key}")
-                ->json();
-    $v1b   = Http::get("https://generativelanguage.googleapis.com/v1beta/models?key={$key}")
-                ->json();
+        abort_if($key === '', 503, 'GEMINI_API_KEY is not configured.');
 
-    return response()->json([
-        'v1'     => $v1,
-        'v1beta' => $v1b,
-    ]);
-});
+        $v1 = Http::get(
+            'https://generativelanguage.googleapis.com/v1/models',
+            ['key' => $key]
+        )->json();
+        $v1b = Http::get(
+            'https://generativelanguage.googleapis.com/v1beta/models',
+            ['key' => $key]
+        )->json();
+
+        return response()->json([
+            'v1' => $v1,
+            'v1beta' => $v1b,
+        ]);
+    });
+}

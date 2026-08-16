@@ -9,9 +9,13 @@ class Similarity
      */
     public static function cosine(array $a, array $b): float
     {
+        if ($a === [] || count($a) !== count($b)) {
+            return 0.0;
+        }
+
         $dot = 0.0; $magA = 0.0; $magB = 0.0;
 
-        $n = min(count($a), count($b));
+        $n = count($a);
         for ($i = 0; $i < $n; $i++) {
             $dot  += $a[$i] * $b[$i];
             $magA += $a[$i] ** 2;

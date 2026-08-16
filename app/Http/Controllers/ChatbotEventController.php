@@ -72,11 +72,11 @@ class ChatbotEventController extends Controller
         ]);
     }
 
-    // API: list pertanyaan belum terjawab (source = gemini, similarity < thresehold)
+    // API: list pertanyaan belum terjawab dari provider LLM.
     public function unanswered()
     {
         $rows = DB::table('chatbot_logs')
-            ->where('source', 'gemini')
+            ->whereIn('source', ['llm', 'gemini'])
             ->where('similarity', '<', 0.0)
             ->orderByDesc('created_at')
             ->limit(200)

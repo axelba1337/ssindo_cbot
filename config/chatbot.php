@@ -4,13 +4,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | LLM Provider
+    |--------------------------------------------------------------------------
+    | Supported providers: gemini, openai.
+    */
+    'provider' => env('LLM_PROVIDER', 'gemini'),
+    'fallback_source' => 'llm',
+
+    /*
+    |--------------------------------------------------------------------------
     | Retrieval & Threshold
     |--------------------------------------------------------------------------
-    | Ambang cosine similarity untuk menjawab dari database (RAG).
-    | Jika skor < threshold → fallback ke LLM (Gemini).
+    | Ambang relevansi untuk memasukkan data perusahaan ke konteks LLM.
+    | Pertanyaan di bawah threshold tetap dapat dijawab oleh LLM/web.
     */
-    'threshold' => (float) env('CHATBOT_THRESHOLD', 0.0),
+    'threshold' => (float) env('CHATBOT_THRESHOLD', 0.45),
+    'lexical_threshold' => (float) env(
+        'CHATBOT_LEXICAL_THRESHOLD',
+        0.65
+    ),
     'top_k'     => (int)   env('CHATBOT_TOPK', 5),   // ambil top-K snippet sebelum rerank/konteks
+    'history_messages' => (int) env('CHATBOT_HISTORY_MESSAGES', 8),
 
     // Versi Api
     'api_version' => env('GEMINI_API_VERSION', 'v1beta'),
@@ -24,6 +38,22 @@ return [
     'models' => [
         'embed' => env('GEMINI_EMBED_MODEL', 'models/text-embedding-004'),
         'chat'  => env('GEMINI_MODEL',       'models/gemini-2.0-flash-001'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | OpenAI
+    |--------------------------------------------------------------------------
+    */
+    'openai' => [
+        'chat_model' => env('OPENAI_CHAT_MODEL', 'gpt-5.6-luna'),
+        'embed_model' => env('OPENAI_EMBED_MODEL', 'text-embedding-3-small'),
+        'store' => (bool) env('OPENAI_STORE', false),
+        'web_search' => [
+            'enabled' => (bool) env('OPENAI_WEB_SEARCH', true),
+            'live' => (bool) env('OPENAI_WEB_SEARCH_LIVE', true),
+            'context_size' => env('OPENAI_WEB_SEARCH_CONTEXT', 'medium'),
+        ],
     ],
 
     /*
