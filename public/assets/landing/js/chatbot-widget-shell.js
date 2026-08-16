@@ -39,6 +39,7 @@
 
     shell.style.left = `${x}px`;
     shell.style.top  = `${y}px`;
+    shell.style.right = 'auto';
     shell.style.bottom = 'auto';
   }
 

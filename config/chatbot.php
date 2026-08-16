@@ -6,7 +6,7 @@ return [
     |--------------------------------------------------------------------------
     | LLM Provider
     |--------------------------------------------------------------------------
-    | Supported providers: gemini, openai.
+    | Gemini is the only active runtime provider.
     */
     'provider' => env('LLM_PROVIDER', 'gemini'),
     'fallback_source' => 'llm',
@@ -36,24 +36,12 @@ return [
     | Atur via .env agar mudah ganti model tanpa ubah kode.
     */
     'models' => [
-        'embed' => env('GEMINI_EMBED_MODEL', 'models/text-embedding-004'),
-        'chat'  => env('GEMINI_MODEL',       'models/gemini-2.0-flash-001'),
+        'embed' => env('GEMINI_EMBED_MODEL', 'models/gemini-embedding-2'),
+        'chat'  => env('GEMINI_MODEL', 'models/gemini-3.6-flash'),
     ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | OpenAI
-    |--------------------------------------------------------------------------
-    */
-    'openai' => [
-        'chat_model' => env('OPENAI_CHAT_MODEL', 'gpt-5.6-luna'),
-        'embed_model' => env('OPENAI_EMBED_MODEL', 'text-embedding-3-small'),
-        'store' => (bool) env('OPENAI_STORE', false),
-        'web_search' => [
-            'enabled' => (bool) env('OPENAI_WEB_SEARCH', true),
-            'live' => (bool) env('OPENAI_WEB_SEARCH_LIVE', true),
-            'context_size' => env('OPENAI_WEB_SEARCH_CONTEXT', 'medium'),
-        ],
+    'gemini' => [
+        'embedding_dimension' => (int) env('GEMINI_EMBED_DIM', 768),
+        'google_search' => (bool) env('GEMINI_GOOGLE_SEARCH', false),
     ],
 
     /*
@@ -67,10 +55,6 @@ return [
         'max_context_items' => (int) env('CHATBOT_CTX_ITEMS', 3),
         'max_context_chars' => (int) env('CHATBOT_CTX_CHARS', 2000),
 
-        // konfigurasi sampling (dipakai di GeminiService->chat())
-        'temperature'       => (float) env('CHATBOT_TEMPERATURE', 0.2),
-        'top_k'             => (int)   env('CHATBOT_LLM_TOPK', 40),
-        'top_p'             => (float) env('CHATBOT_LLM_TOPP', 0.95),
         'max_output_tokens' => (int)   env('CHATBOT_MAX_TOKENS', 512),
 
         // HTTP client

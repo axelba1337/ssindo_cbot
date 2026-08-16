@@ -2,10 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 
-// Tambahkan ini di paling atas file routes/web.php
 Route::get('/', function () {
-    return redirect()->route('chatbot'); 
-});
+    return view('welcome');
+})->name('home');
 
 // ==========================
 // ROUTE UNTUK CHATBOT (USER)

@@ -52,5 +52,8 @@ class QueryRouterTest extends TestCase
         $this->assertTrue(
             $this->router->usesCompanyData('berapa harganya?', $history)
         );
+        $this->assertTrue(
+            $this->router->usesCompanyData('Speknya bagaimana?', $history)
+        );
     }
 }

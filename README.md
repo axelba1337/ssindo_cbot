@@ -1,118 +1,118 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Neev Solusindo Chatbot
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel 12 application for the Neev Solusindo public landing page, floating
+chatbot, standalone chatbot page, and chatbot administration tools.
 
-## About Laravel
+## Requirements
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP 8.2 or newer
+- Composer
+- Node.js and npm
+- MySQL with the existing Neev Solusindo tables
+- A Gemini API key
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Gemini configuration
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+The chatbot uses the native Google Gemini REST API through
+`App\Services\LLMInterface`. Gemini is the only active runtime provider; an
+OpenAI API key is not required.
 
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
-
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
-
-## Chatbot LLM provider
-
-The chatbot supports Gemini and OpenAI through `App\Services\LLMInterface`.
-Copy `.env.example` to `.env`, then select one provider:
+Keep the real API key only in `.env` locally or in the secret environment
+configuration of the production host. Never commit it.
 
 ```dotenv
-LLM_PROVIDER=openai
-OPENAI_API_KEY=your-key-here
-OPENAI_CHAT_MODEL=gpt-5.6-luna
-OPENAI_EMBED_MODEL=text-embedding-3-small
-OPENAI_WEB_SEARCH=true
-OPENAI_WEB_SEARCH_LIVE=true
-CHATBOT_THRESHOLD=0.45
-CHATBOT_LEXICAL_THRESHOLD=0.65
+LLM_PROVIDER=gemini
+
+GEMINI_API_VERSION=v1beta
+GEMINI_API_KEY=PASTE_MY_KEY_HERE
+GEMINI_MODEL=models/gemini-3.6-flash
+GEMINI_EMBED_MODEL=models/gemini-embedding-2
+GEMINI_EMBED_DIM=768
+GEMINI_GOOGLE_SEARCH=false
+
+CHATBOT_HISTORY_MESSAGES=8
+CHATBOT_MAX_TOKENS=512
+CHATBOT_HTTP_TIMEOUT=25
+CHATBOT_HTTP_RETRY=1
 ```
 
-Keep real API keys only in `.env` for local development or in your hosting
-platform's secret environment variables for production. Never commit a real
-key to Git.
+`GEMINI_GOOGLE_SEARCH` is optional and disabled by default. When enabled,
+Gemini may use Google Search grounding for current external information. The
+normal chatbot and company RAG flow do not require it.
 
-OpenAI mode combines semantic retrieval from `chatbot_knowledge`, recent
-messages from the current chatbot session, and optional live web search chosen
-automatically by the model. Company database context takes priority for Neev
-products, services, contacts, and office hours. Web search is intended for
-external or current information and has its own API cost; set
-`OPENAI_WEB_SEARCH=false` to disable it.
+The configured REST endpoints resolve to:
 
-After changing the embedding provider or model, clear cached configuration and
-rebuild every stored knowledge embedding:
+```text
+https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent
+https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent
+```
+
+Authentication is sent in the `x-goog-api-key` header. The key is never placed
+in source code, URLs, command output, or application logs.
+
+## Provider/model migration
+
+Embeddings from OpenAI, an older Gemini model, or another output dimension are
+not compatible with `gemini-embedding-2`. A full knowledge build first clears
+stored vectors and then recreates them with the configured Gemini model and
+dimension. If an API call fails, lexical retrieval remains available instead
+of comparing incompatible vectors.
+
+Run these commands after setting the Gemini key:
 
 ```shell
-php artisan config:clear
+php artisan optimize:clear
+php artisan chatbot:test-gemini
 php artisan chatbot:build-knowledge
+php artisan test
+composer run dev
 ```
 
-### Local development
+The health command checks a small embedding and chat request without printing
+the API key. A successful result includes:
 
-On Windows, start Laravel, the queue listener, and Vite with:
+```text
+Gemini API: OK
+Chat model: gemini-3.6-flash
+Embedding model: gemini-embedding-2
+Embedding dimension: 768
+Response: GEMINI_OK
+```
+
+## Verifying Gemini in Laravel logs
+
+On Windows, follow the application log from a separate PowerShell terminal:
+
+```powershell
+Get-Content .\storage\logs\laravel.log -Wait
+```
+
+Successful Gemini calls do not write warnings. Failed calls write a safe entry
+such as `Gemini chat error` or `Gemini embedding error`, with HTTP status,
+Gemini error code, and message—but never the API key. You can also confirm that
+knowledge rows contain 768-value JSON vectors after a successful rebuild.
+
+## Routes
+
+```text
+/                  Public landing page with floating chatbot
+/chatbot           Standalone chatbot
+/chatbot/widget    Floating widget demo
+/admin             Admin dashboard
+/admin/faq         FAQ management
+/admin/unanswered  Unanswered-question review
+```
+
+Landing-page detail/contact CTAs show a confirmation modal before navigating to
+the official Neevwork website. Local section navigation and all chatbot/admin
+controls are excluded from that behavior.
+
+## Local development on Windows
 
 ```shell
 composer run dev
 ```
 
-Laravel Pail requires the `pcntl` PHP extension, which is not available on
-native Windows. On Linux, macOS, or a compatible Docker container, include
-Pail with:
-
-```shell
-composer run dev:with-logs
-```
-
-To follow the Laravel log on Windows, use a separate PowerShell terminal:
-
-```powershell
-Get-Content .\storage\logs\laravel.log -Wait
-```
+This starts Laravel, the queue listener, and Vite. Laravel Pail requires the
+`pcntl` extension and is therefore kept in the separate `dev:with-logs` script
+for compatible Linux/macOS environments.

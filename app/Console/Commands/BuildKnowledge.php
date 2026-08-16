@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Services\KnowledgeBuilder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Command untuk membangun ulang seluruh knowledge base chatbot.
@@ -36,6 +37,11 @@ class BuildKnowledge extends Command
         $this->info('🚀 Memulai proses build knowledge base...');
 
         try {
+            // Never retain vectors made by another provider or model during a
+            // full rebuild. If Gemini is unavailable, lexical retrieval remains
+            // available instead of comparing incompatible embeddings.
+            DB::table('chatbot_knowledge')->update(['embedding' => null]);
+
             $totals = $builder->buildAll();
 
             foreach ($totals as $key => $val) {

@@ -3,7 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Console\Commands\{BuildKnowledge, SyncKnowledge};
+use App\Console\Commands\{BuildKnowledge, SyncKnowledge, TestGemini};
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -25,5 +25,6 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withCommands([
         BuildKnowledge::class,
         SyncKnowledge::class,
+        TestGemini::class,
     ])
     ->create();

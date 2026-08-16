@@ -12,7 +12,7 @@ final class ChatResult
     ) {}
 
     public static function failure(
-        string $text = 'Maaf, koneksi ke layanan AI eksternal sedang tidak '
+        string $text = 'Maaf, koneksi ke layanan Gemini sedang tidak '
             .'tersedia. Saya masih dapat membantu dengan informasi produk '
             .'dan layanan Neev yang tersimpan.'
     ): self {

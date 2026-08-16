@@ -24,11 +24,10 @@ return [
 
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
-    ],
-
-    'openai' => [
-        'key' => env('OPENAI_API_KEY'),
-        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+        'base_url' => env(
+            'GEMINI_BASE_URL',
+            'https://generativelanguage.googleapis.com'
+        ),
     ],
 
     'ses' => [

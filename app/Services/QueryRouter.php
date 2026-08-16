@@ -31,7 +31,11 @@ final class QueryRouter
             return true;
         }
 
-        if (preg_match('/\b(harga|price|stok|stock|berapa)\b/u', $query)) {
+        if (preg_match(
+            '/\b(harga(?:nya)?|price|stok(?:nya)?|stock|berapa|'
+                .'spek(?:nya)?|spesifikasi|detail|bagaimana|gimana|tersebut)\b/u',
+            $query
+        )) {
             $recentHistory = collect(array_slice($history, -4))
                 ->pluck('content')
                 ->implode(' ');
