@@ -8,15 +8,21 @@
   const NEEVWORK_URL = body.dataset.neevworkUrl || 'https://neevwork.com/';
   let lastFocusedElement = null;
 
+  function setMenuState(isOpen) {
+    navigation?.classList.toggle('is-open', isOpen);
+    menuButton?.setAttribute('aria-expanded', String(isOpen));
+
+    const accessibleLabel = menuButton?.querySelector('.sr-only');
+    if (accessibleLabel) accessibleLabel.textContent = isOpen ? 'Tutup menu' : 'Buka menu';
+  }
+
   function closeMenu() {
-    navigation?.classList.remove('is-open');
-    menuButton?.setAttribute('aria-expanded', 'false');
+    setMenuState(false);
   }
 
   menuButton?.addEventListener('click', () => {
     const isOpen = menuButton.getAttribute('aria-expanded') === 'true';
-    menuButton.setAttribute('aria-expanded', String(!isOpen));
-    navigation?.classList.toggle('is-open', !isOpen);
+    setMenuState(!isOpen);
   });
 
   navigation?.querySelectorAll('a[href^="#"]').forEach(link => {
@@ -89,5 +95,9 @@
     if (!navigation?.classList.contains('is-open')) return;
     if (navigation.contains(event.target) || menuButton?.contains(event.target)) return;
     closeMenu();
+  });
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 920) closeMenu();
   });
 })();
