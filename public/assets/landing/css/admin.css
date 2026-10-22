@@ -52,6 +52,9 @@ a:hover{text-decoration:underline}
 }
 .admin__nav a{margin-left:12px;padding:6px 8px;border-radius:6px}
 .admin__nav a:hover{background:var(--adm-card)}
+.admin__logout-form{margin:0 0 0 12px}
+.admin__logout{padding:6px 8px;background:transparent;color:var(--adm-link)}
+.admin__logout:hover{text-decoration:underline;filter:none}
 
 /* Theme toggle */
 .theme-toggle{
@@ -96,6 +99,9 @@ a:hover{text-decoration:underline}
 .table thead th{font-size:13px;text-align:left;color:var(--adm-muted);border-bottom:1px solid var(--adm-border);padding:10px}
 .table tbody td{padding:10px;border-bottom:1px solid var(--adm-border);vertical-align:top}
 .table .clip{max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.table-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+.table-scroll .table{min-width:640px}
+.admin :is(a,button,input,textarea,[tabindex]):focus-visible{outline:3px solid var(--adm-link);outline-offset:3px}
 
 .table-actions{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .table-actions input[type="text"]{
@@ -107,6 +113,8 @@ a:hover{text-decoration:underline}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .form-grid label{display:flex;flex-direction:column;font-size:14px;gap:6px}
 .form-grid input[type="text"],
+.form-grid input[type="email"],
+.form-grid input[type="password"],
 .form-grid textarea,
 .form-grid input[type="number"]{
   padding:10px 12px;border:1px solid var(--adm-border);border-radius:8px;background:var(--adm-card);color:var(--adm-text)
@@ -171,3 +179,36 @@ button:hover{filter:brightness(.97)}
 .hidden {
   display: none;
 }
+
+.admin-login__main{min-height:100vh;display:grid;place-items:center;padding:24px}
+.admin-login__card{width:100%;max-width:420px;margin:0}
+.admin-login__card .form-grid{grid-template-columns:1fr}
+.form-error{margin:0;color:#dc2626;font-size:14px}
+
+/* Keep desktop layout intact; only tables may scroll horizontally. */
+@media (max-width:767px){
+  .admin__header{flex-wrap:wrap;gap:8px;padding:10px 16px}
+  .admin__brand{min-width:0;overflow-wrap:anywhere}
+  .admin__nav{flex-wrap:wrap;gap:4px;width:100%;min-width:0}
+  .admin__nav a,.admin__logout{display:inline-flex;align-items:center;min-height:44px;margin:0;padding:8px}
+  .admin__logout-form,.theme-toggle{margin-left:0}
+  .theme-toggle label{display:inline-flex;align-items:center;min-height:44px;gap:6px}
+  .admin__main{margin-block:16px;min-width:0}
+  .card{min-width:0;padding:14px;overflow-wrap:anywhere}
+  .card-grid .card{min-width:0;max-width:100%;margin-bottom:0}
+  .form-grid{grid-template-columns:minmax(0,1fr)}
+  .form-grid label{min-width:0}
+  .form-grid :is(input,textarea){min-width:0;width:100%;font-size:16px;min-height:44px}
+  .table-actions{flex-wrap:wrap;gap:8px}
+  .table-actions input[type="text"]{width:100%;min-height:44px;font-size:16px}
+  .row-actions,.modal__footer{flex-wrap:wrap}
+  .admin button{min-height:44px;max-width:100%;touch-action:manipulation}
+  .modal{z-index:100;align-items:flex-start;overflow-y:auto}
+  .modal__dialog{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto}
+  .modal__header h2{font-size:22px}
+  .modal__close{min-width:44px;flex-shrink:0}
+  .notif{right:16px;left:16px;overflow-wrap:anywhere}
+  .admin-login__main{min-height:100vh;min-height:100dvh;padding:16px}
+}
+
+@media (prefers-reduced-motion:reduce){.notif{transition:none}}

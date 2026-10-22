@@ -44,6 +44,7 @@
     <input type="text" id="faq-search" placeholder="Cari intent/pertanyaan...">
   </div>
 
+  <div class="table-scroll" role="region" aria-label="Daftar FAQ, geser untuk melihat semua kolom" tabindex="0">
   <table class="table">
     <thead>
       <tr>
@@ -61,6 +62,7 @@
       </tr>
     </tbody>
   </table>
+  </div>
 </section>
 @endsection
 

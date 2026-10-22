@@ -26,7 +26,7 @@ class KnowledgeRetrieverTest extends TestCase
                 'faq',
                 'FAQ: greeting',
                 "Intent: greeting\nPertanyaan: hello\n"
-                    ."Jawaban: Kalau butuh bantuan teknisi saya siap membantu."
+                    .'Jawaban: Kalau butuh bantuan teknisi saya siap membantu.'
             ),
             $this->row(
                 2,
@@ -34,7 +34,7 @@ class KnowledgeRetrieverTest extends TestCase
                 'FAQ: troubleshoot_cctv',
                 "Intent: troubleshoot_cctv\n"
                     ."Pertanyaan: Kamera tidak menampilkan gambar\n"
-                    ."Jawaban: Hubungi teknisi."
+                    .'Jawaban: Hubungi teknisi.'
             ),
         ];
 
@@ -56,7 +56,7 @@ class KnowledgeRetrieverTest extends TestCase
                 'FAQ: troubleshoot_cctv',
                 "Intent: troubleshoot_cctv\n"
                     ."Pertanyaan: Kamera saya tidak menampilkan gambar\n"
-                    ."Jawaban: Periksa daya dan kabel."
+                    .'Jawaban: Periksa daya dan kabel.'
             ),
         ];
 
@@ -82,14 +82,14 @@ class KnowledgeRetrieverTest extends TestCase
                 'FAQ: troubleshoot_cctv',
                 "Intent: troubleshoot_cctv\n"
                     ."Pertanyaan: Kamera tidak menampilkan gambar\n"
-                    ."Jawaban: Periksa daya dan kabel."
+                    .'Jawaban: Periksa daya dan kabel.'
             ),
             $this->row(
                 3,
                 'product',
                 'Produk: Kamera Bullet 4MP',
                 "Nama: Kamera Bullet 4MP\nSKU: CCTV-BUL-4MP\n"
-                    ."Kategori: CCTV"
+                    .'Kategori: CCTV'
             ),
         ];
 
@@ -103,18 +103,49 @@ class KnowledgeRetrieverTest extends TestCase
         $this->assertSame('product', $matches[0]['kind']);
     }
 
+    public function test_lexical_fallback_survives_mixed_embedding_dimensions(): void
+    {
+        $semanticRow = $this->row(
+            1,
+            'service',
+            'Layanan: CCTV',
+            'Pemasangan CCTV',
+            [0.0, 1.0, 0.0]
+        );
+        $lexicalRow = $this->row(
+            2,
+            'service',
+            'Layanan: Software Development',
+            'Pembuatan aplikasi web mobile untuk bisnis.',
+            [1.0, 0.0]
+        );
+
+        $matches = app(KnowledgeRetriever::class)->rank(
+            [$semanticRow, $lexicalRow],
+            [1.0, 0.0, 0.0],
+            'butuh aplikasi mobile bisnis'
+        );
+
+        $this->assertSame(2, $matches[0]['id']);
+        $this->assertSame('lexical', $matches[0]['retrieval']);
+        $this->assertTrue(
+            app(KnowledgeRetriever::class)->isRelevant($matches[0])
+        );
+    }
+
     private function row(
         int $id,
         string $kind,
         string $title,
-        string $content
+        string $content,
+        ?array $embedding = null
     ): object {
         return (object) [
             'id' => $id,
             'kind' => $kind,
             'title' => $title,
             'content_text' => $content,
-            'embedding' => null,
+            'embedding' => $embedding,
         ];
     }
 }

@@ -39,9 +39,17 @@
   }
 
   async function getJSON(url, opts = {}) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    const { headers = {}, ...requestOptions } = opts;
     const res = await fetch(url, {
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-      ...opts,
+      ...requestOptions,
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+        ...headers,
+      },
     });
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return res.json();
@@ -67,20 +75,30 @@
     tbody.innerHTML = '';
     rows.forEach(r => {
       const tr = document.createElement('tr');
-
       const status = r.is_active ? 'Aktif' : 'Nonaktif';
 
-      tr.innerHTML = `
-        <td>${r.id}</td>
-        <td>${r.intent ?? '-'}</td>
-        <td class="clip">${r.question}</td>
-        <td>${status}</td>
-        <td>${r.updated_at ?? '-'}</td>
-        <td>
-          <button type="button" class="btn-secondary btn-sm" data-edit="${r.id}">Edit</button>
-          <button type="button" class="danger btn-sm" data-del="${r.id}">Hapus</button>
-        </td>
-      `;
+      [r.id, r.intent ?? '-', r.question, status, r.updated_at ?? '-'].forEach((value, index) => {
+        const cell = document.createElement('td');
+        if (index === 2) cell.className = 'clip';
+        cell.textContent = String(value ?? '');
+        tr.appendChild(cell);
+      });
+
+      const actions = document.createElement('td');
+      const editButton = document.createElement('button');
+      editButton.type = 'button';
+      editButton.className = 'btn-secondary btn-sm';
+      editButton.dataset.edit = String(r.id);
+      editButton.textContent = 'Edit';
+
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'danger btn-sm';
+      deleteButton.dataset.del = String(r.id);
+      deleteButton.textContent = 'Hapus';
+
+      actions.append(editButton, document.createTextNode(' '), deleteButton);
+      tr.appendChild(actions);
       tbody.appendChild(tr);
     });
   }

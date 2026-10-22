@@ -2,12 +2,31 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\FaqRequest;
+use App\Http\Requests\PromoteUnansweredRequest;
+use App\Services\KnowledgeBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Services\KnowledgeBuilder;
+use Illuminate\Validation\Rule;
 
 class ChatbotEventController extends Controller
 {
+    public function store(Request $request)
+    {
+        $request->validate([
+            'type' => [
+                'required',
+                'string',
+                Rule::in(['open', 'close', 'widget_open', 'widget_close', 'rating']),
+            ],
+            'rating' => ['nullable', 'required_if:type,rating', 'integer', 'between:1,5'],
+        ]);
+
+        // Event persistence is optional in the current schema. A validated
+        // acknowledgement keeps this public endpoint bounded and predictable.
+        return response()->json(['ok' => true], 202);
+    }
+
     // -------- FAQ LIST (dipakai daftar tabel) --------
     public function faqIndex()
     {
@@ -19,26 +38,17 @@ class ChatbotEventController extends Controller
     }
 
     // -------- CREATE / UPDATE FAQ + rebuild langsung --------
-    public function faqStore(Request $request, KnowledgeBuilder $builder)
+    public function faqStore(FaqRequest $request, KnowledgeBuilder $builder)
     {
-        $id       = $request->input('id');          // boleh null (create) atau id (update)
-        $intent   = $request->input('intent');
-        $question = $request->input('question');
-        $answer   = $request->input('answer');
-
-        if (! $question || ! $answer) {
-            return response()->json([
-                'ok'    => false,
-                'error' => 'Pertanyaan dan jawaban wajib diisi.'
-            ], 422);
-        }
+        $validated = $request->validated();
+        $id = isset($validated['id']) ? (int) $validated['id'] : null;
 
         $data = [
-            'intent'    => $intent ?: null,
-            'question'  => $question,
-            'answer'    => $answer,
-            'is_active' => true,
-            'updated_at'=> now(),
+            'intent' => $validated['intent'] ?? null,
+            'question' => trim($validated['question']),
+            'answer' => trim($validated['answer']),
+            'is_active' => $validated['is_active'] ?? true,
+            'updated_at' => now(),
         ];
 
         if ($id) {
@@ -48,27 +58,36 @@ class ChatbotEventController extends Controller
             $id = DB::table('faq_qa')->insertGetId($data);
         }
 
-        // Langsung rebuild knowledge hanya untuk FAQ
-        $count = $builder->buildFaq();
+        $synchronized = $builder->syncFaq((int) $id);
 
         return response()->json([
-            'ok'       => true,
-            'id'       => $id,
-            'rebuilt'  => $count,
+            'ok' => true,
+            'id' => $id,
+            'synchronized' => $synchronized,
+            'rebuilt' => $synchronized ? 1 : 0,
         ]);
     }
 
     // -------- HAPUS FAQ --------
-    public function faqDelete($id, KnowledgeBuilder $builder)
+    public function faqDelete(int $id, KnowledgeBuilder $builder)
     {
-        DB::table('faq_qa')->where('id', $id)->delete();
+        $deleted = DB::transaction(function () use ($id, $builder) {
+            $deleted = DB::table('faq_qa')->where('id', $id)->delete();
+            $builder->deleteSourceKnowledge('faq_qa', (int) $id);
 
-        // rebuild lagi supaya knowledge sinkron
-        $count = $builder->buildFaq();
+            return $deleted;
+        });
+
+        if (! $deleted) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'FAQ tidak ditemukan.',
+            ], 404);
+        }
 
         return response()->json([
-            'ok'      => true,
-            'rebuilt' => $count,
+            'ok' => true,
+            'rebuilt' => 0,
         ]);
     }
 
@@ -91,12 +110,12 @@ class ChatbotEventController extends Controller
 
         $data = $rows->map(function ($r) {
             return [
-                'id'          => $r->id,
-                'session_id'  => $r->session_id,
-                'user_message'=> $r->user_message,
-                'bot_answer'  => $r->bot_answer,
-                'similarity'  => (float) $r->similarity,
-                'created_at'  => $r->created_at,
+                'id' => $r->id,
+                'session_id' => $r->session_id,
+                'user_message' => $r->user_message,
+                'bot_answer' => $r->bot_answer,
+                'similarity' => (float) $r->similarity,
+                'created_at' => $r->created_at,
             ];
         });
 
@@ -105,30 +124,41 @@ class ChatbotEventController extends Controller
 
     // API: jadikan log tertentu sebagai FAQ + rebuild knowledge
     // [FIX] Hapus LLMInterface dari parameter, cukup KnowledgeBuilder
-    public function toFaq(Request $request, int $logId, KnowledgeBuilder $builder)
-    {
-        $validated = $request->validate([
-            'intent'   => ['nullable','string','max:64'],
-            'question' => ['required','string'],
-            'answer'   => ['required','string'],
-        ]);
+    public function toFaq(
+        PromoteUnansweredRequest $request,
+        int $id,
+        KnowledgeBuilder $builder
+    ) {
+        $validated = $request->validated();
+
+        $unansweredExists = DB::table('chatbot_logs')
+            ->where('id', $id)
+            ->whereIn('source', ['llm', 'gemini'])
+            ->where('similarity', '<', 0.0)
+            ->exists();
+
+        if (! $unansweredExists) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'Pertanyaan tidak ditemukan.',
+            ], 404);
+        }
 
         // buat baris faq_qa baru
         $faqId = DB::table('faq_qa')->insertGetId([
-            'intent'     => $validated['intent'] ?: null,
-            'question'   => $validated['question'],
-            'answer'     => $validated['answer'],
-            'is_active'  => true,
+            'intent' => $validated['intent'] ?: null,
+            'question' => trim($validated['question']),
+            'answer' => trim($validated['answer']),
+            'is_active' => true,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        // [FIX] Tidak perlu new KnowledgeBuilder, pakai instance yang sudah di-inject
-        $builder->buildFaq();
+        $builder->syncFaq((int) $faqId);
 
         return response()->json([
-            'ok'    => true,
-            'faq_id'=> $faqId,
+            'ok' => true,
+            'faq_id' => $faqId,
         ]);
     }
 }

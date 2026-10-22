@@ -17,7 +17,7 @@
   <div id="cbot-quick" class="quick" hidden></div>
 
   <form id="cbot-form" class="cbot__input" autocomplete="off">
-    <input id="cbot-input" type="text" aria-label="Pesan untuk Neev Assistant" placeholder="Tulis pesan..." enterkeyhint="send">
+    <input id="cbot-input" type="text" maxlength="2000" aria-label="Pesan untuk Neev Assistant" placeholder="Tulis pesan..." enterkeyhint="send">
     <button id="cbot-send" type="submit" aria-label="Kirim pesan">
       <img src="{{ asset('images/paper-plane.svg') }}" alt="" class="icon-send">
     </button>

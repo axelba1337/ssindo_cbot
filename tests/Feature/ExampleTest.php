@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
 // use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -23,6 +24,16 @@ class ExampleTest extends TestCase
 
     public function test_existing_chatbot_and_admin_routes_still_render(): void
     {
+        $admin = new User;
+        $admin->forceFill([
+            'id' => 1,
+            'name' => 'Route Test Admin',
+            'email' => 'route-admin@example.test',
+            'is_admin' => true,
+        ]);
+        $admin->exists = true;
+        $this->actingAs($admin);
+
         $this->get('/chatbot')->assertOk();
         $this->get('/admin')->assertOk();
         $this->get('/admin/faq')->assertOk();

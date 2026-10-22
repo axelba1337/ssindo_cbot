@@ -10,7 +10,10 @@
   const pct = (x) => `${Math.round((Number(x) || 0) * 100)}%`;
 
   async function getJSON(url) {
-    const r = await fetch(url, { headers: { Accept: 'application/json' } });
+    const r = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    });
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
     return r.json();
   }

@@ -12,47 +12,36 @@ final class KnowledgeRetriever
         string $normalizedQuery
     ): array {
         $scored = [];
+        $queryVector = $this->validVector($queryVector);
 
-        if ($queryVector) {
-            foreach ($rows as $row) {
-                if (!$row->embedding) continue;
+        foreach ($rows as $row) {
+            $semanticScore = null;
+            $vector = $this->validVector($row->embedding ?? null);
 
-                $vector = is_string($row->embedding)
-                    ? json_decode($row->embedding, true)
-                    : $row->embedding;
+            if ($queryVector && $vector
+                && count($queryVector) === count($vector)) {
+                $semanticScore = Similarity::cosine($queryVector, $vector);
+            }
 
-                if (!is_array($vector)
-                    || count($queryVector) !== count($vector)) {
-                    continue;
-                }
+            // Lexical scoring is calculated per row, not only when every
+            // semantic vector fails. This keeps exact fallback matches usable
+            // during partial migrations or mixed embedding dimensions.
+            [$title, $searchableContent] = $this->lexicalFields($row);
+            $lexicalScore = $this->lexicalScore(
+                $normalizedQuery,
+                $title,
+                $searchableContent
+            );
 
-                $scored[] = $this->result(
-                    $row,
-                    Similarity::cosine($queryVector, $vector),
-                    'semantic'
-                );
+            if ($lexicalScore > 0
+                && ($semanticScore === null || $lexicalScore >= $semanticScore)) {
+                $scored[] = $this->result($row, $lexicalScore, 'lexical');
+            } elseif ($semanticScore !== null && $semanticScore > 0) {
+                $scored[] = $this->result($row, $semanticScore, 'semantic');
             }
         }
 
-        // This covers provider switches, missing embeddings, and temporary
-        // embedding API failures. FAQ answers are deliberately excluded from
-        // lexical matching so generic words in an answer cannot hijack intent.
-        if ($scored === []) {
-            foreach ($rows as $row) {
-                [$title, $searchableContent] = $this->lexicalFields($row);
-                $score = $this->lexicalScore(
-                    $normalizedQuery,
-                    $title,
-                    $searchableContent
-                );
-
-                if ($score > 0) {
-                    $scored[] = $this->result($row, $score, 'lexical');
-                }
-            }
-        }
-
-        usort($scored, fn($a, $b) => $b['score'] <=> $a['score']);
+        usort($scored, fn ($a, $b) => $b['score'] <=> $a['score']);
 
         return array_slice(
             $scored,
@@ -123,12 +112,15 @@ final class KnowledgeRetriever
         $stopWords = [
             'apa', 'apakah', 'yang', 'dan', 'atau', 'dari', 'untuk',
             'saya', 'ingin', 'tidak', 'the', 'and', 'are', 'can', 'you',
+            'jual', 'menjual', 'beli', 'harga', 'stok', 'tersedia', 'ada',
+            'sell', 'selling', 'buy', 'price', 'stock', 'available', 'have',
+            'layanan', 'service', 'services', 'butuh', 'perlu', 'need',
         ];
 
         return array_values(array_unique(array_filter(
             $tokens,
             fn ($token) => mb_strlen($token, 'UTF-8') >= 3
-                && !in_array($token, $stopWords, true)
+                && ! in_array($token, $stopWords, true)
         )));
     }
 
@@ -138,12 +130,30 @@ final class KnowledgeRetriever
         string $retrieval
     ): array {
         return [
-            'id'           => $row->id,
-            'kind'         => $row->kind,
-            'title'        => $row->title,
+            'id' => $row->id,
+            'kind' => $row->kind,
+            'title' => $row->title,
             'content_text' => $row->content_text,
-            'score'        => $score,
-            'retrieval'    => $retrieval,
+            'source_table' => $row->source_table ?? null,
+            'source_id' => isset($row->source_id)
+                ? (int) $row->source_id
+                : null,
+            'score' => $score,
+            'retrieval' => $retrieval,
         ];
+    }
+
+    private function validVector(mixed $vector): ?array
+    {
+        if (is_string($vector)) {
+            $vector = json_decode($vector, true);
+        }
+
+        if (! is_array($vector) || $vector === []
+            || collect($vector)->contains(fn ($value) => ! is_numeric($value))) {
+            return null;
+        }
+
+        return array_map('floatval', $vector);
     }
 }

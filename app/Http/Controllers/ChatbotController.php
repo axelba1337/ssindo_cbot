@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use App\Helpers\Normalizer;
+use App\Http\Requests\ChatbotQueryRequest;
+use App\Services\ChatbotSessionManager;
 use App\Services\KnowledgeRetriever;
 use App\Services\LLMInterface;
 use App\Services\QueryRouter;
-use App\Helpers\Normalizer;
+use Illuminate\Support\Facades\DB;
 
 class ChatbotController extends Controller
 {
@@ -16,25 +16,19 @@ class ChatbotController extends Controller
         private LLMInterface $llm,
         private KnowledgeRetriever $retriever,
         private QueryRouter $router,
+        private ChatbotSessionManager $sessions,
     ) {}
 
-    public function query(Request $request)
+    public function query(ChatbotQueryRequest $request)
     {
-        $message     = (string) ($request->input('message') ?? '');
-        $rawSession  = $request->input('session_id');                           // token/string dari client (boleh null/uuid/numeric)
-        $sessionId   = $this->resolveSessionId($rawSession);                    // pastikan BIGINT id dari tabel chatbot_sessions
+        $validated = $request->validated();
+        $message = $validated['message'];
+        $session = $this->sessions->resolve(
+            $validated['session_token'] ?? $validated['session_id'] ?? null
+        );
+        $sessionId = $session['id'];
+        $sessionToken = $session['token'];
         $fallbackSource = (string) config('chatbot.fallback_source', 'llm');
-
-        if (trim($message) === '') {
-            return response()->json([
-                'answer'        => 'Silakan ketik pertanyaan Anda.',
-                'source'        => 'faq',
-                'similarity'    => null,
-                'cta_whatsapp'  => ['show' => false, 'link' => null],
-                'session_id'    => $sessionId,
-                'session_token' => $rawSession,
-            ], 200);
-        }
 
         // Normalisasi awal
         $normalized = Normalizer::text($message);
@@ -45,26 +39,34 @@ class ChatbotController extends Controller
         if ($this->isWhatsAppIntent($normalized)) {
             // Paksa CTA selalu muncul
             $cta = $this->buildWhatsAppCta(true, $message);
+            $isEnglish = $this->isEnglishMessage($normalized);
 
-            $answer = 'Anda bisa menghubungi admin Neev melalui WhatsApp '
-                    . 'menggunakan tombol "WhatsApp Admin" di bagian atas. '
-                    . 'Silakan jelaskan kebutuhan dan lokasi Anda, admin akan membantu tindak lanjut.';
+            $answer = $isEnglish
+                ? 'You can contact the Neev admin using the WhatsApp Admin '
+                    .'button. Please describe your needs so the admin can '
+                    .'verify the details.'
+                : 'Anda bisa menghubungi admin Neev melalui tombol WhatsApp '
+                    .'Admin. Silakan jelaskan kebutuhan Anda agar admin dapat '
+                    .'memeriksa detailnya.';
 
-            if (!empty($cta['link'])) {
-                $answer = "Anda bisa menghubungi admin melalui WhatsApp pada tautan berikut:\n"
-                . $cta['link'] . "\n\nSilakan jelaskan kebutuhan Anda.";        
+            if (! empty($cta['link'])) {
+                $answer = $isEnglish
+                    ? "You can contact the admin through WhatsApp:\n"
+                        .$cta['link']."\n\nPlease describe your needs."
+                    : "Anda bisa menghubungi admin melalui WhatsApp:\n"
+                        .$cta['link']."\n\nSilakan jelaskan kebutuhan Anda.";
             }
 
             // Log sebagai CONTACT
             $this->log($sessionId, $message, $answer, 'contact', null, null);
 
             return response()->json([
-                'answer'        => $answer,
-                'source'        => 'contact',
-                'similarity'    => null,
-                'cta_whatsapp'  => $cta,
-                'session_id'    => $sessionId,
-                'session_token' => $rawSession,
+                'answer' => $answer,
+                'source' => 'contact',
+                'similarity' => null,
+                'cta_whatsapp' => $cta,
+                'session_id' => $sessionToken,
+                'session_token' => $sessionToken,
             ]);
         }
 
@@ -79,17 +81,17 @@ class ChatbotController extends Controller
             );
 
             return response()->json([
-                'answer'        => $direct['answer'],
-                'source'        => $direct['source'],
-                'similarity'    => null,
-                'used_web'      => false,
-                'sources'       => [],
-                'cta_whatsapp'  => $this->buildWhatsAppCta(
+                'answer' => $direct['answer'],
+                'source' => $direct['source'],
+                'similarity' => null,
+                'used_web' => false,
+                'sources' => [],
+                'cta_whatsapp' => $this->buildWhatsAppCta(
                     (bool) ($direct['show_whatsapp'] ?? false),
                     $message
                 ),
-                'session_id'    => $sessionId,
-                'session_token' => $rawSession,
+                'session_id' => $sessionToken,
+                'session_token' => $sessionToken,
             ]);
         }
 
@@ -110,7 +112,15 @@ class ChatbotController extends Controller
         if ($useCompanyData) {
             $qVec = $this->llm->getEmbedding($normalized);
             $rows = DB::table('chatbot_knowledge')
-                ->select('id','kind','title','content_text','embedding')
+                ->select(
+                    'id',
+                    'kind',
+                    'title',
+                    'content_text',
+                    'embedding',
+                    'source_table',
+                    'source_id'
+                )
                 ->orderByDesc('updated_at')
                 ->get();
 
@@ -133,7 +143,7 @@ class ChatbotController extends Controller
             fn ($match) => $this->retriever->isRelevant($match)
         ));
         $context = array_map(
-            fn($x) => "Type: {$x['kind']}\n"
+            fn ($x) => "Type: {$x['kind']}\n"
                 ."Title: {$x['title']}\n"
                 ."Data:\n{$x['content_text']}",
             array_slice(
@@ -185,14 +195,14 @@ class ChatbotController extends Controller
         $this->log($sessionId, $message, $answer, $source, $similarity, $topK);
 
         return response()->json([
-            'answer'        => $answer,
-            'source'        => $source,
-            'similarity'    => $similarity,
-            'used_web'      => $chat->usedWeb,
-            'sources'       => $chat->sources,
-            'cta_whatsapp'  => $cta,
-            'session_id'    => $sessionId,
-            'session_token' => $rawSession,
+            'answer' => $answer,
+            'source' => $source,
+            'similarity' => $similarity,
+            'used_web' => $chat->usedWeb,
+            'sources' => $chat->sources,
+            'cta_whatsapp' => $cta,
+            'session_id' => $sessionToken,
+            'session_token' => $sessionToken,
         ]);
     }
 
@@ -207,6 +217,10 @@ class ChatbotController extends Controller
                 'answer' => 'Yes, I can speak English. How can I help you?',
                 'source' => 'assistant',
             ];
+        }
+
+        if ($serviceResponse = $this->directServiceResponse($message)) {
+            return $serviceResponse;
         }
 
         if ($this->isProductCatalogIntent($message)) {
@@ -244,7 +258,7 @@ class ChatbotController extends Controller
                             ."{$available}. Please contact the admin if you "
                             .'want us to check special availability.'
                         : ucfirst($requested).' belum tercatat dalam katalog '
-                            ."produk Neev saat ini. Produk yang tercatat: "
+                            .'produk Neev saat ini. Produk yang tercatat: '
                             ."{$available}. Hubungi admin jika Anda ingin kami "
                             .'memeriksa ketersediaan khusus.',
                     'source' => 'product',
@@ -264,24 +278,10 @@ class ChatbotController extends Controller
                     ? "Yes. These matching products are currently listed:\n"
                         ."{$list}\n\nStock and prices are based on the current "
                         .'catalog data.'
-                    : "Ya, Neev menjual perangkat CCTV. Produk yang "
-                        ."sesuai dan tercatat saat ini:\n{$list}\n\n"
+                    : 'Produk yang sesuai dan tercatat dalam katalog Neev '
+                        ."saat ini:\n{$list}\n\n"
                         .'Stok dan harga mengikuti data katalog saat ini.',
                 'source' => 'product',
-            ];
-        }
-
-        if (preg_match(
-            '/\b(pasang|pemasangan|instalasi)\b.*\bcctv\b'
-                .'|\bcctv\b.*\b(pasang|pemasangan|instalasi)\b/u',
-            $message
-        )) {
-            return [
-                'answer' => 'Tentu, Neev melayani pemasangan CCTV. Agar '
-                    .'rekomendasinya tepat, pemasangan ini untuk rumah, toko, '
-                    .'kantor, atau lokasi lain? Jika sudah tahu, sebutkan juga '
-                    .'perkiraan jumlah titik kamera.',
-                'source' => 'service',
             ];
         }
 
@@ -298,19 +298,32 @@ class ChatbotController extends Controller
             ];
         }
 
-        if (str_contains($message, 'jam')
-            && preg_match('/\b(operasional|buka|tutup)\b/u', $message)) {
+        if ((str_contains($message, 'jam')
+                && preg_match('/\b(operasional|buka|tutup)\b/u', $message))
+            || preg_match(
+                '/\b(office|business|opening)\s+hours\b'
+                    .'|\bwhat\s+time\b.*\b(open|close)\b/u',
+                $message
+            )) {
             $hours = DB::table('office_hours')->orderBy('id')->first();
 
             if ($hours) {
                 $open = substr((string) $hours->open_time, 0, 5);
                 $close = substr((string) $hours->close_time, 0, 5);
                 $note = trim((string) ($hours->note ?? ''));
+                $timezone = (string) $hours->timezone === 'Asia/Jakarta'
+                    ? 'WIB'
+                    : (string) $hours->timezone;
+                $isEnglish = $this->isEnglishMessage($message);
 
                 return [
-                    'answer' => "Jam operasional Neev pukul {$open}–{$close} "
-                        ."WIB setiap hari."
-                        .($note !== '' ? " {$note}" : ''),
+                    'answer' => $isEnglish
+                        ? "Neev's recorded office hours are {$open}-{$close} "
+                            ."{$timezone}. Please confirm holiday exceptions "
+                            .'with the admin.'
+                        : "Jam operasional Neev tercatat pukul {$open}-{$close} "
+                            ."{$timezone}."
+                            .($note !== '' ? " Catatan: {$note}." : ''),
                     'source' => 'office_hours',
                 ];
             }
@@ -321,15 +334,147 @@ class ChatbotController extends Controller
                 .'assalamualaikum|permisi)$/u',
             $message
         )) {
+            $isEnglish = $this->isEnglishMessage($message);
+
             return [
-                'answer' => 'Halo! Saya Neev Assistant. Saya bisa membantu '
-                    .'soal produk CCTV, pemasangan, jam operasional, atau '
-                    .'kendala teknis. Apa yang ingin Anda tanyakan?',
+                'answer' => $isEnglish
+                    ? 'Hello! I am Neev Assistant. I can help with products, '
+                        .'services, office hours, and technical support. What '
+                        .'would you like to know?'
+                    : 'Halo! Saya Neev Assistant. Saya bisa membantu soal '
+                        .'produk, layanan, jam operasional, atau kendala teknis. '
+                        .'Apa yang ingin Anda tanyakan?',
                 'source' => 'assistant',
             ];
         }
 
         return null;
+    }
+
+    private function directServiceResponse(string $message): ?array
+    {
+        if (! $this->router->isCompanyServiceQuestion($message)) {
+            return null;
+        }
+
+        $topic = $this->serviceTopic($message);
+        $asksForServiceList = preg_match(
+            '/\b(apa|what|which|daftar|list)\b.*\b(layanan|service|services)\b'
+                .'|\b(layanan|service|services)\b.*\b(apa|what|available)\b/u',
+            $message
+        ) === 1;
+
+        // FAQ questions such as "kenapa survei" should continue through RAG.
+        if ($topic === null && ! $asksForServiceList) {
+            return null;
+        }
+
+        $services = DB::table('services')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['name', 'description', 'price']);
+        $matches = $topic === null
+            ? $services
+            : $services->filter(
+                fn ($service) => $this->serviceMatchesTopic($service, $topic)
+            )->values();
+        $isEnglish = $this->isEnglishMessage($message);
+
+        if ($matches->isEmpty()) {
+            return [
+                'answer' => $isEnglish
+                    ? 'That capability is not currently recorded as an active '
+                        .'Neev service. Please ask the admin to verify it.'
+                    : 'Kemampuan tersebut belum tercatat sebagai layanan aktif '
+                        .'Neev. Silakan minta admin untuk memastikannya.',
+                'source' => 'service',
+                'show_whatsapp' => true,
+            ];
+        }
+
+        if ($topic === 'software') {
+            return [
+                'answer' => $isEnglish
+                    ? 'Yes. Neev records Software Development as an active '
+                        .'service for web/mobile and custom business '
+                        .'applications. SIMPUS, HRMS, and POS are software '
+                        .'solutions, not physical-stock items. Features, '
+                        .'integrations, schedule, and price require admin '
+                        .'confirmation.'
+                    : 'Ya. Neev mencatat Software Development sebagai layanan '
+                        .'aktif untuk aplikasi web/mobile dan aplikasi bisnis '
+                        .'custom. SIMPUS, HRMS, dan POS adalah solusi software, '
+                        .'bukan stok barang fisik. Fitur, integrasi, jadwal, dan '
+                        .'biaya perlu dikonfirmasi dengan admin.',
+                'source' => 'service',
+                'show_whatsapp' => true,
+            ];
+        }
+
+        $names = $matches->pluck('name')->implode(', ');
+        $descriptions = $matches->pluck('description')->filter()->implode(' ');
+
+        return [
+            'answer' => $isEnglish
+                ? "Yes. Neev records {$names} as an active service. The exact "
+                    .'scope, schedule, and price require admin confirmation.'
+                : "Ya. Neev mencatat {$names} sebagai layanan aktif."
+                    .($descriptions !== '' ? " {$descriptions}" : '')
+                    .' Detail cakupan, jadwal, dan biaya perlu dikonfirmasi '
+                    .'dengan admin.',
+            'source' => 'service',
+            'show_whatsapp' => true,
+        ];
+    }
+
+    private function serviceTopic(string $message): ?string
+    {
+        if (preg_match(
+            '/\b(software|aplikasi|application|apps?|mobile|website|web|'
+                .'simpus|hrms|pos|point\s+of\s+sale|custom)\b/u',
+            $message
+        )) {
+            return 'software';
+        }
+
+        if (preg_match('/\b(jaringan|network|wifi|wi-fi|lan|internet)\b/u', $message)) {
+            return 'network';
+        }
+
+        if (preg_match('/\b(cctv|kamera|camera|nvr|dvr)\b/u', $message)) {
+            return 'cctv';
+        }
+
+        if (preg_match(
+            '/\b(maintenance|perawatan|it\s+support|dukungan\s+it|teknisi)\b/u',
+            $message
+        )) {
+            return 'maintenance';
+        }
+
+        if (preg_match('/\b(ai|virtual\s+admin|chatbot)\b/u', $message)) {
+            return 'ai';
+        }
+
+        return null;
+    }
+
+    private function serviceMatchesTopic(object $service, string $topic): bool
+    {
+        $haystack = mb_strtolower(
+            "{$service->name} {$service->description}",
+            'UTF-8'
+        );
+        $patterns = [
+            'software' => '/\b(software|aplikasi|application|web|mobile)\b/u',
+            'network' => '/\b(jaringan|network|internet|lan|wifi)\b/u',
+            'cctv' => '/\b(cctv|kamera|camera|keamanan)\b/u',
+            'maintenance' => '/\b(maintenance|perawatan|dukungan|support)\b/u',
+            'ai' => '/\b(ai|virtual\s+admin|chatbot)\b/u',
+        ];
+
+        return isset($patterns[$topic])
+            && preg_match($patterns[$topic], $haystack) === 1;
     }
 
     private function isProductCatalogIntent(string $message): bool
@@ -395,7 +540,7 @@ class ChatbotController extends Controller
         return array_values(array_unique(array_filter(
             $tokens,
             fn ($token) => mb_strlen($token, 'UTF-8') >= 2
-                && !in_array($token, $ignored, true)
+                && ! in_array($token, $ignored, true)
         )));
     }
 
@@ -420,11 +565,20 @@ class ChatbotController extends Controller
 
     private function isEnglishMessage(string $message): bool
     {
-        return preg_match(
-            '/\b(do|does|you|sell|have|price|stock|available|product|'
-                .'products|english|what|which)\b/u',
+        $englishSignals = preg_match_all(
+            '/\b(do|does|you|your|sell|have|price|stock|available|english|'
+                .'what|which|can|could|would|build|develop|install|office|'
+                .'hours|contact|number|please|hello|need)\b/u',
             $message
-        ) === 1;
+        );
+        $indonesianSignals = preg_match_all(
+            '/\b(apa|apakah|saya|kami|ingin|bisa|dapat|buat|membuat|berapa|'
+                .'harga|stok|tersedia|jam|kontak|nomor|layanan|butuh|perlu|'
+                .'halo|hai)\b/u',
+            $message
+        );
+
+        return $englishSignals > $indonesianSignals;
     }
 
     private function databaseFallbackAnswer(array $match): string
@@ -469,52 +623,24 @@ class ChatbotController extends Controller
     }
 
     // Konversi session token/string → BIGINT id (chatbot_sessions.id)
-    private function resolveSessionId($sessionInput): int
-    {
-        // jika angka, pastikan ada
-        if (is_numeric($sessionInput)) {
-            $id = (int) $sessionInput;
-            if (DB::table('chatbot_sessions')->where('id', $id)->exists()) {
-                return $id;
-            }
-            // jatuhkan ke alur token agar dibuat sesi baru
-            $sessionInput = "migrated-{$id}";
-        }
-
-        $token = $sessionInput ?: (string) Str::uuid();
-
-        $existing = DB::table('chatbot_sessions')
-            ->where('user_identifier', $token)
-            ->orderByDesc('id')
-            ->first();
-
-        if ($existing) return (int) $existing->id;
-
-        return (int) DB::table('chatbot_sessions')->insertGetId([
-            'user_identifier' => $token,
-            'started_at'      => now(),
-            'meta'            => json_encode([
-                'ip' => request()->ip(),
-                'ua' => request()->userAgent(),
-            ]),
-        ]);
-    }
-
     private function buildWhatsAppCta(bool $show, string $originalMessage): array
     {
         // Ambil nomor dari DB atau fallback
         $number = DB::table('company_contacts')
-            ->where('type','whatsapp')
+            ->where('type', 'whatsapp')
             ->where('is_primary', true)
             ->value('value');
 
-        if (!$number) {
+        if (! $number) {
             $number = config('chatbot.whatsapp.fallback_number');
         }
 
         // Hanya format link utama, tanpa "?text=..."
-        $cleanNumber = preg_replace('/\D/', '', $number);  
-        $link = $cleanNumber ? "https://wa.me/{$cleanNumber}" : null;
+        $cleanNumber = preg_replace('/\D/', '', (string) $number);
+        $link = is_string($cleanNumber)
+            && preg_match('/^[1-9]\d{7,14}$/', $cleanNumber) === 1
+                ? "https://wa.me/{$cleanNumber}"
+                : null;
 
         return [
             'show' => $show && (bool) $link,
@@ -525,24 +651,24 @@ class ChatbotController extends Controller
     // Simpan log (session_id BIGINT, boleh null jika sesi hilang)
     private function log(?int $sessionId, string $userMessage, string $botAnswer, string $source, ?float $similarity, ?array $topK): void
     {
-        if ($sessionId !== null && !DB::table('chatbot_sessions')->where('id', $sessionId)->exists()) {
+        if ($sessionId !== null && ! DB::table('chatbot_sessions')->where('id', $sessionId)->exists()) {
             $sessionId = null;
         }
 
         try {
             DB::table('chatbot_logs')->insert([
-                'session_id'   => $sessionId,
+                'session_id' => $sessionId,
                 'user_message' => $userMessage,
-                'bot_answer'   => $botAnswer,
-                'source'       => $source,
-                'similarity'   => $similarity,
-                'top_matches'  => $topK ? json_encode(
+                'bot_answer' => $botAnswer,
+                'source' => $source,
+                'similarity' => $similarity,
+                'top_matches' => $topK ? json_encode(
                     array_map(
-                        fn($x)=>['id'=>$x['id'],'score'=>round($x['score'],4),'kind'=>$x['kind']],
+                        fn ($x) => ['id' => $x['id'], 'score' => round($x['score'], 4), 'kind' => $x['kind']],
                         $topK
                     )
                 ) : null,
-                'created_at'   => now(),
+                'created_at' => now(),
             ]);
         } catch (\Throwable $e) {
             // Logging must never turn a valid chatbot response into an HTTP 500.
@@ -559,7 +685,8 @@ class ChatbotController extends Controller
         $t = mb_strtolower($text);
 
         return preg_match(
-            '/(wa|whatsapp|kontak\s*admin|nomor\s*admin|hubungi\s*admin|kontak\s*wa)/u',
+            '/\b(?:wa|whatsapp)\b'
+                .'|\b(?:kontak|nomor|hubungi)\s*(?:admin|whatsapp|wa)\b/u',
             $t
         ) === 1;
     }

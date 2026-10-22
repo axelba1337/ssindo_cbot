@@ -4,6 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>@yield('title','Admin Chatbot')</title>
 
   <link rel="stylesheet" href="{{ asset('assets/landing/css/admin.css') }}">
@@ -17,6 +18,11 @@
       <a href="{{ route('admin.dashboard') }}">Dashboard</a>
       <a href="{{ route('admin.faq') }}">FAQ</a>
       <a href="{{ route('admin.unanswered') }}">Unanswered</a>
+
+      <form method="POST" action="{{ route('admin.logout') }}" class="admin__logout-form">
+        @csrf
+        <button type="submit" class="admin__logout">Logout</button>
+      </form>
 
       <div class="theme-toggle">
         <label for="theme-toggle-input">

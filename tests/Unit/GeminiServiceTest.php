@@ -31,20 +31,19 @@ class GeminiServiceTest extends TestCase
     public function test_it_requests_a_configured_embedding_with_header_auth(): void
     {
         Http::fake([
-            'https://gemini.test/v1beta/models/embedding-test:embedContent'
-                => Http::response([
-                    'embedding' => ['values' => [0.1, 0.2, 0.3]],
-                ]),
+            'https://gemini.test/v1beta/models/embedding-test:embedContent' => Http::response([
+                'embedding' => ['values' => [0.1, 0.2, 0.3]],
+            ]),
         ]);
 
-        $embedding = (new GeminiService())->getEmbedding('kamera CCTV');
+        $embedding = (new GeminiService)->getEmbedding('kamera CCTV');
 
         $this->assertSame([0.1, 0.2, 0.3], $embedding);
         Http::assertSent(function (Request $request) {
             return $request->url()
                     === 'https://gemini.test/v1beta/models/embedding-test:embedContent'
                 && $request->hasHeader('x-goog-api-key', 'test-gemini-key')
-                && !str_contains($request->url(), 'test-gemini-key')
+                && ! str_contains($request->url(), 'test-gemini-key')
                 && $request['content']['parts'][0]['text'] === 'kamera CCTV'
                 && $request['outputDimensionality'] === 3;
         });
@@ -53,18 +52,17 @@ class GeminiServiceTest extends TestCase
     public function test_chat_uses_native_system_instruction_and_history(): void
     {
         Http::fake([
-            'https://gemini.test/v1beta/models/gemini-test:generateContent'
-                => Http::response([
-                    'candidates' => [[
-                        'content' => [
-                            'parts' => [['text' => 'Jawaban Gemini.']],
-                        ],
-                        'finishReason' => 'STOP',
-                    ]],
-                ]),
+            'https://gemini.test/v1beta/models/gemini-test:generateContent' => Http::response([
+                'candidates' => [[
+                    'content' => [
+                        'parts' => [['text' => 'Jawaban Gemini.']],
+                    ],
+                    'finishReason' => 'STOP',
+                ]],
+            ]),
         ]);
 
-        $result = (new GeminiService())->chat(
+        $result = (new GeminiService)->chat(
             'Berapa stoknya?',
             ['Produk NVR memiliki stok tercatat 8 unit.'],
             [
@@ -81,8 +79,10 @@ class GeminiServiceTest extends TestCase
 
         Http::assertSent(function (Request $request) {
             $contents = $request['contents'];
+            $instruction = $request['system_instruction']['parts'][0]['text'] ?? '';
 
-            return isset($request['system_instruction']['parts'][0]['text'])
+            return str_contains($instruction, 'Data bertipe product')
+                && str_contains($instruction, 'saling bertentangan')
                 && $contents[0]['role'] === 'user'
                 && $contents[0]['parts'][0]['text'] === 'Ada NVR?'
                 && $contents[1]['role'] === 'model'
@@ -95,7 +95,7 @@ class GeminiServiceTest extends TestCase
                 && $request['generationConfig'] === [
                     'maxOutputTokens' => 256,
                 ]
-                && !isset($request['tools']);
+                && ! isset($request['tools']);
         });
     }
 
@@ -103,25 +103,24 @@ class GeminiServiceTest extends TestCase
     {
         config(['chatbot.gemini.google_search' => true]);
         Http::fake([
-            'https://gemini.test/v1beta/models/gemini-test:generateContent'
-                => Http::response([
-                    'candidates' => [[
-                        'content' => [
-                            'parts' => [['text' => 'Informasi terbaru.']],
-                        ],
-                        'groundingMetadata' => [
-                            'groundingChunks' => [[
-                                'web' => [
-                                    'title' => 'Sumber resmi',
-                                    'uri' => 'https://example.com/source',
-                                ],
-                            ]],
-                        ],
-                    ]],
-                ]),
+            'https://gemini.test/v1beta/models/gemini-test:generateContent' => Http::response([
+                'candidates' => [[
+                    'content' => [
+                        'parts' => [['text' => 'Informasi terbaru.']],
+                    ],
+                    'groundingMetadata' => [
+                        'groundingChunks' => [[
+                            'web' => [
+                                'title' => 'Sumber resmi',
+                                'uri' => 'https://example.com/source',
+                            ],
+                        ]],
+                    ],
+                ]],
+            ]),
         ]);
 
-        $result = (new GeminiService())->chat('Informasi terbaru?');
+        $result = (new GeminiService)->chat('Informasi terbaru?');
 
         $this->assertTrue($result->usedWeb);
         $this->assertSame([[
@@ -149,7 +148,7 @@ class GeminiServiceTest extends TestCase
             ], 401),
         ]);
 
-        $result = (new GeminiService())->chat('Halo');
+        $result = (new GeminiService)->chat('Halo');
 
         $this->assertFalse($result->successful);
         Http::assertSentCount(1);
@@ -162,7 +161,7 @@ class GeminiServiceTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('GEMINI_API_KEY is missing');
 
-        new GeminiService();
+        new GeminiService;
     }
 
     public function test_container_resolves_gemini_as_the_only_provider(): void

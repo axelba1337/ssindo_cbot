@@ -7,11 +7,11 @@
 
   const AVATAR_URL = ROOT.dataset.avatarUrl || '';
 
-  async function postQuery(message, sessionId) {
-    const body = sessionId ? { message, session_id: sessionId } : { message };
+  async function postQuery(message, sessionToken) {
+    const body = sessionToken ? { message, session_token: sessionToken } : { message };
     const res = await fetch('/api/chatbot/query', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -113,7 +113,10 @@
       if (avatar) avatar.remove();
     } else {
       if (avatar && AVATAR_URL) {
-        avatar.innerHTML = `<img src="${AVATAR_URL}" alt="Neev">`;
+        const image = document.createElement('img');
+        image.src = AVATAR_URL;
+        image.alt = 'Neev';
+        avatar.replaceChildren(image);
       }
     }
 
@@ -123,18 +126,31 @@
 
   function renderWhatsAppOnlyBubble(link) {
     const wrap = qs('#cbot-messages');
-    if (!wrap) return;
+    const href = safeWebUrl(link);
+    if (!wrap || !href || new URL(href).hostname !== 'wa.me') return;
 
     const div = document.createElement('div');
     div.className = 'msg msg--bot';
-    div.innerHTML = `
-      <div class="msg__avatar">
-        ${AVATAR_URL ? `<img src="${AVATAR_URL}" alt="Neev">` : ''}
-      </div>
-      <div class="msg__bubble">
-        <a class="btn-wa-only" href="${link}" target="_blank" rel="noopener">WhatsApp Admin</a>
-      </div>
-    `;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'msg__avatar';
+    if (AVATAR_URL) {
+      const image = document.createElement('img');
+      image.src = AVATAR_URL;
+      image.alt = 'Neev';
+      avatar.appendChild(image);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg__bubble';
+    const anchor = document.createElement('a');
+    anchor.className = 'btn-wa-only';
+    anchor.href = href;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.textContent = 'WhatsApp Admin';
+    bubble.appendChild(anchor);
+    div.append(avatar, bubble);
     wrap.appendChild(div);
     wrap.scrollTop = wrap.scrollHeight;
   }
@@ -183,7 +199,7 @@
 
     try {
       const res = await postQuery(msg, sid);
-      sid = res.session_id || sid;
+      sid = res.session_token || res.session_id || sid;
 
       const answerText = res.answer || 'Baik, kami proses.';
       const hasWa = !!(res.cta_whatsapp?.show && res.cta_whatsapp?.link);

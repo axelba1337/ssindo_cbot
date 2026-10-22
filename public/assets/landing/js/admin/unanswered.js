@@ -35,9 +35,17 @@
   }
 
   async function getJSON(url, opts = {}) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    const { headers = {}, ...requestOptions } = opts;
     const r = await fetch(url, {
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-      ...opts,
+      ...requestOptions,
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+        ...headers,
+      },
     });
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
     return r.json();
@@ -65,17 +73,27 @@
     tbody.innerHTML = '';
     rows.forEach(r => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${r.created_at ?? '-'}</td>
-        <td>${r.session_id ?? '-'}</td>
-        <td class="clip">${r.user_message}</td>
-        <td>${similarityPct(r.similarity)}</td>
-        <td>
-          <button type="button" class="btn-secondary btn-sm" data-faq="${r.id}">
-            Jadikan FAQ
-          </button>
-        </td>
-      `;
+
+      [
+        r.created_at ?? '-',
+        r.session_id ?? '-',
+        r.user_message,
+        similarityPct(r.similarity),
+      ].forEach((value, index) => {
+        const cell = document.createElement('td');
+        if (index === 2) cell.className = 'clip';
+        cell.textContent = String(value ?? '');
+        tr.appendChild(cell);
+      });
+
+      const actions = document.createElement('td');
+      const faqButton = document.createElement('button');
+      faqButton.type = 'button';
+      faqButton.className = 'btn-secondary btn-sm';
+      faqButton.dataset.faq = String(r.id);
+      faqButton.textContent = 'Jadikan FAQ';
+      actions.appendChild(faqButton);
+      tr.appendChild(actions);
       tbody.appendChild(tr);
     });
   }

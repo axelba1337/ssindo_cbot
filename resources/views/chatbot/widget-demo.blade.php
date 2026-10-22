@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <title>Neev Assistant • Widget Demo</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 
   <link rel="stylesheet" href="{{ asset('assets/landing/css/chatbot-widget.css') }}?v={{ filemtime(public_path('assets/landing/css/chatbot-widget.css')) }}">
 
@@ -60,6 +60,12 @@
       /* Jika ingin widget tetap di pojok kanan bawah, 
          pastikan CSS di chatbot-widget.css tidak di-override ke tengah */
     }
+
+    @media (max-width: 767px) {
+      .hero-text-bg { width: calc(100% - 40px); padding-bottom: 80px; overflow-wrap: anywhere; }
+      .hero-text-bg h1 { font-size: clamp(28px, 7vw, 40px); }
+      .hero-text-bg p { font-size: 16px; }
+    }
   </style>
 </head>
 <body>
@@ -87,12 +93,12 @@
     @include('chatbot._widget')
   </div>
 
-  <div id="cbot-launcher" class="cbot-launcher-icon is-hidden" aria-label="Buka Neev Assistant" role="button" tabindex="0">
+  <button id="cbot-launcher" class="cbot-launcher-icon is-hidden" aria-label="Buka Neev Assistant" aria-controls="cbot-shell" aria-expanded="true" type="button">
     <img src="{{ asset('images/neev-logo.png') }}" alt="Neev Assistant">
-  </div>
+  </button>
 
   <script>window.CBOT_DEBUG = false;</script>
   <script src="{{ asset('assets/landing/js/chatbot-widget.js') }}?v={{ filemtime(public_path('assets/landing/js/chatbot-widget.js')) }}" defer></script>
-  <script src="{{ asset('assets/landing/js/chatbot-widget-shell.js') }}" defer></script>
+  <script src="{{ asset('assets/landing/js/chatbot-widget-shell.js') }}?v={{ filemtime(public_path('assets/landing/js/chatbot-widget-shell.js')) }}" defer></script>
 </body>
 </html>

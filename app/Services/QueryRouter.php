@@ -42,7 +42,8 @@ final class QueryRouter
 
             return preg_match(
                 '/\b(neev|produk|product|cctv|kamera|camera|nvr|'
-                    .'router|wifi|kabel|cable|ups|printer|layanan|service)\b/u',
+                    .'router|wifi|kabel|cable|ups|printer|layanan|service|'
+                    .'software|aplikasi|application|mobile|simpus|hrms|pos)\b/u',
                 mb_strtolower($recentHistory, 'UTF-8')
             ) === 1;
         }
@@ -52,7 +53,7 @@ final class QueryRouter
 
     public function isCompanyCommerceQuestion(string $query): bool
     {
-        $commerce = '(?:jual|menjual|beli|membeli|harga|stok|tersedia|'
+        $commerce = '(?:jual|menjual|beli|membeli|harga|stok|tersedia|ada|punya|'
             .'sell|selling|buy|price|stock|available|carry)';
         $product = '(?:produk|product|barang|cctv|kamera|camera|nvr|dvr|'
             .'router|wifi|kabel|cable|ups|printer|switch|access point|ap)';
@@ -69,15 +70,34 @@ final class QueryRouter
             ) === 1;
     }
 
-    private function isCompanyServiceQuestion(string $query): bool
+    public function isCompanyServiceQuestion(string $query): bool
     {
+        $action = '(?:pasang|pemasangan|instalasi|installation|maintenance|'
+            .'perawatan|survei|survey|teknisi|technician|layanan|service|'
+            .'buat|membuat|pengembangan|develop|development|build|custom|'
+            .'butuh|perlu|ingin|need|can|offer|provide)';
+        $topic = '(?:cctv|kamera|camera|nvr|dvr|jaringan|network|wifi|lan|'
+            .'software|aplikasi|application|mobile|website|web|simpus|hrms|'
+            .'pos|point\s+of\s+sale|it\s+support|dukungan\s+it)';
+
+        if (preg_match('/\b(simpus|hrms|pos|point\s+of\s+sale)\b/u', $query)) {
+            return true;
+        }
+
+        if (preg_match(
+            '/\b(layanan|service|services)\b.*\b(neev|tersedia|available|apa|what)\b'
+                .'|\b(apa|what)\b.*\b(layanan|service|services)\b/u',
+            $query
+        )) {
+            return true;
+        }
+
+        if (preg_match('/\b(kenapa|mengapa|why)\b.*\b(survei|survey)\b/u', $query)) {
+            return true;
+        }
+
         return preg_match(
-            '/\b(pasang|pemasangan|instalasi|installation|maintenance|'
-                .'perawatan|survei|survey|teknisi|technician|layanan|service)\b'
-                .'.*\b(cctv|kamera|camera|nvr|dvr|jaringan|network|wifi)\b'
-                .'|\b(cctv|kamera|camera|nvr|dvr|jaringan|network|wifi)\b'
-                .'.*\b(pasang|pemasangan|instalasi|installation|maintenance|'
-                .'perawatan|survei|survey|teknisi|technician|layanan|service)\b/u',
+            "/\b{$action}\b.*\b{$topic}\b|\b{$topic}\b.*\b{$action}\b/u",
             $query
         ) === 1;
     }
@@ -94,7 +114,7 @@ final class QueryRouter
     private function isTechnicalSupportQuestion(string $query): bool
     {
         $device = '(?:cctv|kamera|camera|nvr|dvr|router|wifi|jaringan|'
-            .'network|kabel|cable|ups)';
+            .'network|kabel|cable|ups|printer|komputer|computer|laptop)';
         $symptom = '(?:rusak|error|masalah|kendala|offline|mati|putus|'
             .'tidak|gagal|buram|blank|hilang|nampil|tampil|rekam|record|'
             .'broken|issue|problem|disconnect|blurry|working)';

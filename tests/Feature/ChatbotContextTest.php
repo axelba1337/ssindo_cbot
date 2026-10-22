@@ -16,7 +16,8 @@ class ChatbotContextTest extends TestCase
         parent::setUp();
 
         $this->createTables();
-        $this->app->instance(LLMInterface::class, new class implements LLMInterface {
+        $this->app->instance(LLMInterface::class, new class implements LLMInterface
+        {
             public function getEmbedding(string $text): ?array
             {
                 return null;
@@ -53,7 +54,7 @@ class ChatbotContextTest extends TestCase
             ->assertJsonFragment(['answer' => $response->json('answer')]);
 
         $this->assertStringContainsString(
-            'Ya, Neev menjual perangkat CCTV',
+            'tercatat dalam katalog Neev',
             $response->json('answer')
         );
         $this->assertStringContainsString(

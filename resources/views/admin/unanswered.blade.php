@@ -10,6 +10,7 @@
     <input id="ua-search" type="text" placeholder="Cari pesan...">
   </div>
 
+  <div class="table-scroll" role="region" aria-label="Pertanyaan belum terjawab, geser untuk melihat semua kolom" tabindex="0">
   <table class="table">
     <thead>
       <tr>
@@ -26,6 +27,7 @@
       </tr>
     </tbody>
   </table>
+  </div>
 </section>
 
 {{-- MODAL Jadikan FAQ (default: hidden) --}}

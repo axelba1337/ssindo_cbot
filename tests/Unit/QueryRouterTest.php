@@ -13,7 +13,7 @@ class QueryRouterTest extends TestCase
     {
         parent::setUp();
 
-        $this->router = new QueryRouter();
+        $this->router = new QueryRouter;
     }
 
     public function test_general_questions_skip_company_retrieval(): void
@@ -54,6 +54,23 @@ class QueryRouterTest extends TestCase
         );
         $this->assertTrue(
             $this->router->usesCompanyData('Speknya bagaimana?', $history)
+        );
+    }
+
+    public function test_company_service_and_software_questions_use_company_data(): void
+    {
+        $this->assertTrue(
+            $this->router->usesCompanyData(
+                'Saya membutuhkan instalasi jaringan kantor'
+            )
+        );
+        $this->assertTrue(
+            $this->router->usesCompanyData(
+                'Can Neev build a mobile application?'
+            )
+        );
+        $this->assertTrue(
+            $this->router->usesCompanyData('Apakah ada SIMPUS?')
         );
     }
 }

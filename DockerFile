@@ -1,44 +1,35 @@
-# 1. Image Dasar
-FROM php:8.3-apache
+# Compile Vite once; landing-page assets remain local files under public/.
+FROM node:22-bookworm-slim AS assets
+WORKDIR /build
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY vite.config.js ./
+COPY resources ./resources
+RUN npm run build
 
-# 2. Install Library & PHP Extensions
+FROM php:8.3-apache
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpng-dev libonig-dev libxml2-dev zip unzip git curl libzip-dev \
-    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
+    libpng-dev libonig-dev libxml2-dev libcurl4-openssl-dev zip unzip git curl libzip-dev \
+    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip opcache curl \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 3. FIX: Set DocumentRoot ke /public (Cegah Error 403)
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/000-default.conf \
-    && sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+RUN sed -i 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf \
+    && a2enmod rewrite
 
-# 4. Setup Mod Rewrite & Workdir
-RUN a2enmod rewrite
 WORKDIR /var/www/html
-
-# 5. Install Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# 6. Copy Source & Install Dependencies
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY . .
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+RUN composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+COPY --from=assets /build/public/build ./public/build
+COPY docker/apache-app.conf /etc/apache2/conf-available/ssindo.conf
+COPY docker/start-app.sh /usr/local/bin/start-app.sh
+RUN a2enconf ssindo \
+    && sed -i 's/\r$//' /usr/local/bin/start-app.sh \
+    && chmod +x /usr/local/bin/start-app.sh \
+    && mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
-# 7. Permissions Storage & Cache
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
-    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
-
-# 8. Script Runtime: Handle Dynamic Port & SSL Aiven
-RUN echo '#!/bin/sh\n\
-# Injeksi SSL Aiven ke storage\n\
-if [ -n "$AIVEN_CA_CERT" ]; then\n\
-  echo "$AIVEN_CA_CERT" > /var/www/html/storage/ca.pem\n\
-  chown www-data:www-data /var/www/html/storage/ca.pem\n\
-fi\n\
-# Set port dinamis Koyeb\n\
-sed -i "s/80/${PORT}/g" /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf\n\
-apache2-foreground' > /usr/local/bin/start-app.sh && chmod +x /usr/local/bin/start-app.sh
-
-# 9. Port Exposure
 EXPOSE 8080
-
 CMD ["/usr/local/bin/start-app.sh"]

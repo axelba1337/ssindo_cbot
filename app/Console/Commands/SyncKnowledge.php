@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Services\KnowledgeBuilder;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -17,7 +17,7 @@ class SyncKnowledge extends Command
      *
      * Jalankan: php artisan chatbot:sync-knowledge
      */
-    protected $signature = 'chatbot:sync-knowledge';
+    protected $signature = 'chatbot:sync-knowledge {--prune-only : Hapus knowledge yatim tanpa membuat embedding}';
 
     /**
      * Deskripsi singkat perintah.
@@ -37,6 +37,13 @@ class SyncKnowledge extends Command
         $this->info('🔄 Memulai sinkronisasi knowledge base...');
 
         try {
+            if ($this->option('prune-only')) {
+                $removed = $builder->pruneOrphans();
+                $this->info("Knowledge yatim dihapus: {$removed}");
+
+                return Command::SUCCESS;
+            }
+
             DB::beginTransaction();
 
             $totals = $builder->buildAll();
@@ -47,12 +54,14 @@ class SyncKnowledge extends Command
 
             DB::commit();
             $this->info('✅ Sinkronisasi selesai!');
+
             return Command::SUCCESS;
 
         } catch (\Throwable $e) {
             DB::rollBack();
-            $this->error('❌ Gagal sinkronisasi: ' . $e->getMessage());
+            $this->error('❌ Gagal sinkronisasi: '.$e->getMessage());
             logger()->error('SyncKnowledge error', ['trace' => $e->getTraceAsString()]);
+
             return Command::FAILURE;
         }
     }
