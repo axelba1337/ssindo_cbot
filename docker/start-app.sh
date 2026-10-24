@@ -22,6 +22,7 @@ fi
 
 sed -i -E "s/^[[:space:]]*Listen[[:space:]]+[0-9]+$/Listen ${port}/" /etc/apache2/ports.conf
 sed -i -E "s/<VirtualHost[[:space:]]+\*:[0-9]+>/<VirtualHost *:${port}>/" /etc/apache2/sites-available/000-default.conf
+apache2ctl configtest
 
 # Runtime variables, not image-build secrets, populate Laravel's cache.
 # Never migrate, seed, regenerate APP_KEY, or rebuild knowledge here.
@@ -30,6 +31,19 @@ if [ "${APP_ENV:-production}" = 'production' ]; then
         echo 'Set the existing production APP_KEY before starting this container.' >&2
         exit 1
     fi
+    # Fix Apache MPM conflict at container startup.
+    a2dismod -f mpm_event mpm_worker 2>/dev/null || true
+
+    rm -f \
+        /etc/apache2/mods-enabled/mpm_event.load \
+        /etc/apache2/mods-enabled/mpm_event.conf \
+        /etc/apache2/mods-enabled/mpm_worker.load \
+        /etc/apache2/mods-enabled/mpm_worker.conf
+
+    a2enmod mpm_prefork
+
+    # Validate the actual runtime Apache configuration.
+    apache2ctl configtest || exit 1
     php artisan config:cache --no-interaction
     php artisan view:cache --no-interaction
 fi
